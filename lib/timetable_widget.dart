@@ -116,7 +116,7 @@ class _TimetableWidgetState extends State<TimetableWidget> {
           return Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withAlpha(179),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Center(
@@ -133,7 +133,7 @@ class _TimetableWidgetState extends State<TimetableWidget> {
           return Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
+              color: Colors.black.withAlpha(179),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Column(
@@ -157,9 +157,9 @@ class _TimetableWidgetState extends State<TimetableWidget> {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.85),
+            color: Colors.black.withAlpha(217),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+            border: Border.all(color: Colors.white.withAlpha(26), width: 1),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -194,18 +194,18 @@ class _TimetableWidgetState extends State<TimetableWidget> {
               // Time & Room
               Row(
                 children: [
-                  Icon(Icons.access_time, size: 14, color: Colors.white.withOpacity(0.6)),
+                  Icon(Icons.access_time, size: 14, color: Colors.white.withAlpha(153)),
                   const SizedBox(width: 6),
                   Text(
                     '${data['startTime']} - ${data['endTime']}',
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                    style: TextStyle(color: Colors.white.withAlpha(179), fontSize: 13),
                   ),
                   const SizedBox(width: 16),
-                  Icon(Icons.location_on_outlined, size: 14, color: Colors.white.withOpacity(0.6)),
+                  Icon(Icons.location_on_outlined, size: 14, color: Colors.white.withAlpha(153)),
                   const SizedBox(width: 6),
                   Text(
                     'Room ${data['room']}',
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                    style: TextStyle(color: Colors.white.withAlpha(179), fontSize: 13),
                   ),
                 ],
               ),
@@ -217,7 +217,7 @@ class _TimetableWidgetState extends State<TimetableWidget> {
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: _getProgress(display['start'], display['end']),
-                    backgroundColor: Colors.white.withOpacity(0.1),
+                    backgroundColor: Colors.white.withAlpha(26),
                     valueColor: const AlwaysStoppedAnimation<Color>(Colors.greenAccent),
                     minHeight: 4,
                   ),
@@ -247,12 +247,12 @@ class _TimetableWidgetState extends State<TimetableWidget> {
               // Next class preview (if currently in a class)
               if (isCurrent && next != null) ...[
                 const SizedBox(height: 16),
-                Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                Divider(color: Colors.white.withAlpha(26), height: 1),
                 const SizedBox(height: 12),
                 Text(
                   'UP NEXT',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withAlpha(128),
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.2,
@@ -262,7 +262,7 @@ class _TimetableWidgetState extends State<TimetableWidget> {
                 Text(
                   (next['data'] as Map<String, dynamic>)['subject'] ?? 'Unknown',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withAlpha(179),
                     fontSize: 14,
                   ),
                   maxLines: 1,

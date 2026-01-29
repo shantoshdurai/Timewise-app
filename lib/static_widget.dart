@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
+
 
 // --- EXISTING LARGE WIDGET ---
 class StaticTimetableWidget extends StatelessWidget {
@@ -174,7 +174,7 @@ class SmallRobotWidget extends StatelessWidget {
               decoration: BoxDecoration(
                 boxShadow: [
                   BoxShadow(
-                    color: themeColor.withOpacity(0.1),
+                    color: themeColor.withAlpha(26),
                     blurRadius: 40,
                     spreadRadius: 10,
                   )
@@ -214,7 +214,7 @@ class SmallRobotWidget extends StatelessWidget {
                   child: Text(
                     info,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.4),
+                      color: Colors.white.withAlpha(102),
                       fontSize: 11,
                     ),
                     maxLines: 1,
@@ -308,7 +308,7 @@ class RobotEyePainter extends CustomPainter {
     canvas.drawPath(
       eyePath,
       Paint()
-        ..color = color.withOpacity(0.3)
+        ..color = color.withAlpha(77)
         ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 8),
     );
 

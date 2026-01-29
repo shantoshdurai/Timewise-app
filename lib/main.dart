@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-// import 'package:home_widget/home_widget.dart';
-// import 'static_widget.dart';
-// import 'notification_service.dart';
+import 'package:home_widget/home_widget.dart';
+import 'static_widget.dart';
+import 'notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  // await NotificationService.init();
+  await NotificationService.init();
   runApp(const TimetableApp());
 }
 
@@ -60,10 +60,10 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     // Update widget on app start
-    // _updateHomeScreenWidget();
+    _updateHomeScreenWidget();
     // Schedule notifications on app start
     _loadSettings();
-    // NotificationService.scheduleTimetableNotifications();
+    NotificationService.scheduleTimetableNotifications();
   }
 
   Future<void> _loadSettings() async {
@@ -80,7 +80,7 @@ class _DashboardPageState extends State<DashboardPage> {
     setState(() {
       notificationsEnabled = newValue;
     });
-    // NotificationService.scheduleTimetableNotifications();
+    NotificationService.scheduleTimetableNotifications();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -94,112 +94,112 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _updateHomeScreenWidget() async {
-    // try {
-    //   final now = DateTime.now();
-    //   final currentDay = DateFormat('EEEE').format(now);
-    //
-    //   final snapshot = await FirebaseFirestore.instance
-    //       .collection('schedule')
-    //       .get();
-    //   final docs = snapshot.docs;
-    //
-    //   Map<String, dynamic>? currentClass;
-    //   Map<String, dynamic>? nextClass;
-    //   String? timeRemaining;
-    //   double progress = 0.0;
-    //
-    //   // Calculate Current Class
-    //   for (var doc in docs) {
-    //     final data = doc.data();
-    //     if (data['dayOfWeek'] != currentDay) continue;
-    //
-    //     final startP = (data['startTime'] as String).split(':');
-    //     final endP = (data['endTime'] as String).split(':');
-    //     final start = DateTime(
-    //       now.year,
-    //       now.month,
-    //       now.day,
-    //       int.parse(startP[0]),
-    //       int.parse(startP[1]),
-    //     );
-    //     final end = DateTime(
-    //       now.year,
-    //       now.month,
-    //       now.day,
-    //       int.parse(endP[0]),
-    //       int.parse(endP[1]),
-    //     );
-    //
-    //     if (now.isAfter(start) && now.isBefore(end)) {
-    //       currentClass = data;
-    //       final diff = end.difference(now);
-    //       timeRemaining = diff.inHours > 0
-    //           ? '${diff.inHours}h ${diff.inMinutes % 60}m'
-    //           : '${diff.inMinutes}m';
-    //       final total = end.difference(start).inMinutes;
-    //       final elapsed = now.difference(start).inMinutes;
-    //       progress = (elapsed / total).clamp(0.0, 1.0);
-    //       break;
-    //     }
-    //   }
-    //
-    //   // Calculate Next Class if no current
-    //   if (currentClass == null) {
-    //     DateTime? nextStart;
-    //     for (var doc in docs) {
-    //       final data = doc.data();
-    //       if (data['dayOfWeek'] != currentDay) continue;
-    //       final startP = (data['startTime'] as String).split(':');
-    //       final start = DateTime(
-    //         now.year,
-    //         now.month,
-    //         now.day,
-    //         int.parse(startP[0]),
-    //         int.parse(startP[1]),
-    //       );
-    //       if (start.isAfter(now)) {
-    //         if (nextStart == null || start.isBefore(nextStart)) {
-    //           nextStart = start;
-    //           nextClass = data;
-    //         }
-    //       }
-    //     }
-    //   }
-    //
-    //   await HomeWidget.renderFlutterWidget(
-    //     StaticTimetableWidget(
-    //       currentClass: currentClass,
-    //       nextClass: nextClass,
-    //       timeRemaining: timeRemaining,
-    //       progress: progress,
-    //     ),
-    //     key: 'timetable_widget',
-    //     logicalSize: const Size(320, 160),
-    //     pixelRatio: 3.0,
-    //   );
-    //
-    //   await HomeWidget.renderFlutterWidget(
-    //     SmallRobotWidget(
-    //       currentClass: currentClass,
-    //       nextClass: nextClass,
-    //     ),
-    //     key: 'robot_widget',
-    //     logicalSize: const Size(160, 160),
-    //     pixelRatio: 3.0,
-    //   );
-    //
-    //   await HomeWidget.updateWidget(
-    //     name: 'TimetableWidgetProvider',
-    //     androidName: 'TimetableWidgetProvider',
-    //   );
-    //   
-    //   await HomeWidget.updateWidget(
-    //     name: 'RobotWidgetProvider',
-    //     androidName: 'RobotWidgetProvider',
-    //   );
-    // } catch (e) {
-    //   debugPrint("Widget update failed: $e");
-    // }
+    try {
+      final now = DateTime.now();
+      final currentDay = DateFormat('EEEE').format(now);
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('schedule')
+          .get();
+      final docs = snapshot.docs;
+
+      Map<String, dynamic>? currentClass;
+      Map<String, dynamic>? nextClass;
+      String? timeRemaining;
+      double progress = 0.0;
+
+      // Calculate Current Class
+      for (var doc in docs) {
+        final data = doc.data();
+        if (data['dayOfWeek'] != currentDay) continue;
+
+        final startP = (data['startTime'] as String).split(':');
+        final endP = (data['endTime'] as String).split(':');
+        final start = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          int.parse(startP[0]),
+          int.parse(startP[1]),
+        );
+        final end = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          int.parse(endP[0]),
+          int.parse(endP[1]),
+        );
+
+        if (now.isAfter(start) && now.isBefore(end)) {
+          currentClass = data;
+          final diff = end.difference(now);
+          timeRemaining = diff.inHours > 0
+              ? '${diff.inHours}h ${diff.inMinutes % 60}m'
+              : '${diff.inMinutes}m';
+          final total = end.difference(start).inMinutes;
+          final elapsed = now.difference(start).inMinutes;
+          progress = (elapsed / total).clamp(0.0, 1.0);
+          break;
+        }
+      }
+
+      // Calculate Next Class if no current
+      if (currentClass == null) {
+        DateTime? nextStart;
+        for (var doc in docs) {
+          final data = doc.data();
+          if (data['dayOfWeek'] != currentDay) continue;
+          final startP = (data['startTime'] as String).split(':');
+          final start = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            int.parse(startP[0]),
+            int.parse(startP[1]),
+          );
+          if (start.isAfter(now)) {
+            if (nextStart == null || start.isBefore(nextStart)) {
+              nextStart = start;
+              nextClass = data;
+            }
+          }
+        }
+      }
+
+      await HomeWidget.renderFlutterWidget(
+        StaticTimetableWidget(
+          currentClass: currentClass,
+          nextClass: nextClass,
+          timeRemaining: timeRemaining,
+          progress: progress,
+        ),
+        key: 'timetable_widget',
+        logicalSize: const Size(320, 160),
+        pixelRatio: 3.0,
+      );
+
+      await HomeWidget.renderFlutterWidget(
+        SmallRobotWidget(
+          currentClass: currentClass,
+          nextClass: nextClass,
+        ),
+        key: 'robot_widget',
+        logicalSize: const Size(160, 160),
+        pixelRatio: 3.0,
+      );
+
+      await HomeWidget.updateWidget(
+        name: 'TimetableWidgetProvider',
+        androidName: 'TimetableWidgetProvider',
+      );
+      
+      await HomeWidget.updateWidget(
+        name: 'RobotWidgetProvider',
+        androidName: 'RobotWidgetProvider',
+      );
+    } catch (e) {
+      debugPrint("Widget update failed: $e");
+    }
   }
 
   // YOUR TIMETABLE DATA
@@ -413,8 +413,8 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     await batch.commit();
-    // _updateHomeScreenWidget();
-    // NotificationService.scheduleTimetableNotifications();
+    _updateHomeScreenWidget();
+    NotificationService.scheduleTimetableNotifications();
 
     // Log the import action
     _postAnnouncement(
@@ -614,10 +614,12 @@ class _DashboardPageState extends State<DashboardPage> {
           .where('dayOfWeek', isEqualTo: selectedDay)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError)
+        if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
-        if (snapshot.connectionState == ConnectionState.waiting)
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
+        }
 
         final docs = snapshot.data!.docs;
         docs.sort(
@@ -830,7 +832,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 isSystemMessage: true,
               );
               _updateHomeScreenWidget();
-              // NotificationService.scheduleTimetableNotifications();
+              NotificationService.scheduleTimetableNotifications();
             },
           ),
           const SizedBox(height: 20),
@@ -948,16 +950,19 @@ class _DashboardPageState extends State<DashboardPage> {
 
                   // Generate change log
                   List<String> changes = [];
-                  if (oldData['room'] != payload['room'])
+                  if (oldData['room'] != payload['room']) {
                     changes.add(
                       "Room: ${oldData['room']} → ${payload['room']}",
                     );
-                  if (oldData['startTime'] != payload['startTime'])
+                  }
+                  if (oldData['startTime'] != payload['startTime']) {
                     changes.add(
                       "Time: ${oldData['startTime']} → ${payload['startTime']}",
                     );
-                  if (oldData['mentor'] != payload['mentor'])
+                  }
+                  if (oldData['mentor'] != payload['mentor']) {
                     changes.add("Mentor changed");
+                  }
 
                   if (changes.isNotEmpty) {
                     _postAnnouncement(
@@ -967,7 +972,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   }
                 }
                 _updateHomeScreenWidget();
-                // NotificationService.scheduleTimetableNotifications();
+                NotificationService.scheduleTimetableNotifications();
                 Navigator.pop(context);
               },
               child: const Text('Save'),
@@ -1008,10 +1013,12 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
                   .orderBy('timestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.hasError)
+                if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
-                if (snapshot.connectionState == ConnectionState.waiting)
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
+                }
 
                 final docs = snapshot.data!.docs;
                 if (docs.isEmpty) {
