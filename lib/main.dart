@@ -7,11 +7,22 @@ import 'static_widget.dart';
 import 'notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_firebase_test/onboarding_screen.dart';
+import 'package:flutter_firebase_test/settings_page.dart';
+
+import 'package:provider/provider.dart';
+import 'package:flutter_firebase_test/theme_provider.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await NotificationService.init();
-  runApp(const TimetableApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => ThemeProvider(),
+      child: const TimetableApp(),
+    ),
+  );
 }
 
 class TimetableApp extends StatelessWidget {
@@ -19,9 +30,12 @@ class TimetableApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'TimeWise',
+      themeMode: themeProvider.themeMode,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF673AB7),
@@ -29,7 +43,47 @@ class TimetableApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const DashboardPage(),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF673AB7),
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      home: const AppLauncher(),
+    );
+  }
+}
+
+class AppLauncher extends StatelessWidget {
+  const AppLauncher({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (snapshot.hasData) {
+          final prefs = snapshot.data!;
+          final hasSelection = prefs.getString('departmentId') != null &&
+              prefs.getString('yearId') != null &&
+              prefs.getString('sectionId') != null;
+
+          if (hasSelection) {
+            return const DashboardPage();
+          }
+        }
+
+        return const OnboardingScreen();
+      },
     );
   }
 }
@@ -95,10 +149,25 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _updateHomeScreenWidget() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final departmentId = prefs.getString('departmentId');
+      final yearId = prefs.getString('yearId');
+      final sectionId = prefs.getString('sectionId');
+
+      if (departmentId == null || yearId == null || sectionId == null) {
+        return;
+      }
+
       final now = DateTime.now();
       final currentDay = DateFormat('EEEE').format(now);
 
       final snapshot = await FirebaseFirestore.instance
+          .collection('departments')
+          .doc(departmentId)
+          .collection('years')
+          .doc(yearId)
+          .collection('sections')
+          .doc(sectionId)
           .collection('schedule')
           .get();
       final docs = snapshot.docs;
@@ -111,7 +180,7 @@ class _DashboardPageState extends State<DashboardPage> {
       // Calculate Current Class
       for (var doc in docs) {
         final data = doc.data();
-        if (data['dayOfWeek'] != currentDay) continue;
+        if (data['day'] != currentDay) continue;
 
         final startP = (data['startTime'] as String).split(':');
         final endP = (data['endTime'] as String).split(':');
@@ -134,7 +203,7 @@ class _DashboardPageState extends State<DashboardPage> {
           currentClass = data;
           final diff = end.difference(now);
           timeRemaining = diff.inHours > 0
-              ? '${diff.inHours}h ${diff.inMinutes % 60}m'
+              ? '${diff.inHours}h ${diff.inMinutes.remainder(60)}m'
               : '${diff.inMinutes}m';
           final total = end.difference(start).inMinutes;
           final elapsed = now.difference(start).inMinutes;
@@ -148,7 +217,7 @@ class _DashboardPageState extends State<DashboardPage> {
         DateTime? nextStart;
         for (var doc in docs) {
           final data = doc.data();
-          if (data['dayOfWeek'] != currentDay) continue;
+          if (data['day'] != currentDay) continue;
           final startP = (data['startTime'] as String).split(':');
           final start = DateTime(
             now.year,
@@ -202,232 +271,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // YOUR TIMETABLE DATA
-  final List<Map<String, dynamic>> timetableData = [
-    {
-      "subject": "Design and Analysis of Algorithms",
-      "mentor": "NF5/ AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Monday",
-      "startTime": "08:30",
-      "endTime": "09:20",
-    },
-    {
-      "subject": "Discrete Mathematics",
-      "mentor": "Mrs. N. Subashini /AP/MATHS",
-      "room": "704",
-      "dayOfWeek": "Monday",
-      "startTime": "09:20",
-      "endTime": "10:10",
-    },
-    {
-      "subject": "Introduction to Computational Biology",
-      "mentor": "Mrs. K. Bharathi /AP/BTE",
-      "room": "704",
-      "dayOfWeek": "Monday",
-      "startTime": "10:10",
-      "endTime": "11:00",
-    },
-    {
-      "subject": "Operating Systems",
-      "mentor": "Mrs. Keerthanasri /AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Monday",
-      "startTime": "11:15",
-      "endTime": "12:05",
-    },
-    {
-      "subject": "Digital Electronics and Microprocessors",
-      "mentor": "Mrs. Kalpana /AP/ECE",
-      "room": "704",
-      "dayOfWeek": "Monday",
-      "startTime": "12:05",
-      "endTime": "12:55",
-    },
-    {
-      "subject": "Operating Systems",
-      "mentor": "Mrs. Keerthanasri /AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Tuesday",
-      "startTime": "08:30",
-      "endTime": "09:20",
-    },
-    {
-      "subject": "Environmental Science",
-      "mentor": "Dr. K. Rajalakshmi/ASP/CHEM",
-      "room": "704",
-      "dayOfWeek": "Tuesday",
-      "startTime": "09:20",
-      "endTime": "10:10",
-    },
-    {
-      "subject": "Discrete Mathematics",
-      "mentor": "Mrs. N. Subashini /AP/MATHS",
-      "room": "704",
-      "dayOfWeek": "Tuesday",
-      "startTime": "10:10",
-      "endTime": "11:00",
-    },
-    {
-      "subject": "Computational Intelligence",
-      "mentor": "Ms. P. Sudha/AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Tuesday",
-      "startTime": "11:15",
-      "endTime": "12:05",
-    },
-    {
-      "subject": "Design Thinking",
-      "mentor": "Mrs. N. Radha /AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Tuesday",
-      "startTime": "12:05",
-      "endTime": "12:55",
-    },
-    {
-      "subject": "Design and Analysis of Algorithms",
-      "mentor": "NF5/ AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Wednesday",
-      "startTime": "09:20",
-      "endTime": "10:10",
-    },
-    {
-      "subject": "Computational Intelligence",
-      "mentor": "Ms. P. Sudha/AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Wednesday",
-      "startTime": "10:10",
-      "endTime": "11:00",
-    },
-    {
-      "subject": "Introduction to Computational Biology",
-      "mentor": "Mrs. K. Bharathi /AP/BTE",
-      "room": "704",
-      "dayOfWeek": "Wednesday",
-      "startTime": "11:15",
-      "endTime": "12:05",
-    },
-    {
-      "subject": "Introduction to Computational Biology",
-      "mentor": "Mrs. K. Bharathi /AP/BTE",
-      "room": "704",
-      "dayOfWeek": "Thursday",
-      "startTime": "08:30",
-      "endTime": "09:20",
-    },
-    {
-      "subject": "Computational Intelligence",
-      "mentor": "Ms. P. Sudha/AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Thursday",
-      "startTime": "09:20",
-      "endTime": "10:10",
-    },
-    {
-      "subject": "Digital Electronics and Microprocessors",
-      "mentor": "Mrs. Kalpana /AP/ECE",
-      "room": "704",
-      "dayOfWeek": "Thursday",
-      "startTime": "10:10",
-      "endTime": "11:00",
-    },
-    {
-      "subject": "Discrete Mathematics",
-      "mentor": "Mrs. N. Subashini /AP/MATHS",
-      "room": "704",
-      "dayOfWeek": "Thursday",
-      "startTime": "11:15",
-      "endTime": "12:05",
-    },
-    {
-      "subject": "Design and Analysis of Algorithms",
-      "mentor": "NF5/ AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Thursday",
-      "startTime": "12:05",
-      "endTime": "12:55",
-    },
-    {
-      "subject": "Operating Systems",
-      "mentor": "Mrs. Keerthanasri /AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Thursday",
-      "startTime": "13:25",
-      "endTime": "14:15",
-    },
-    {
-      "subject": "Environmental Science",
-      "mentor": "Dr. K. Rajalakshmi/ASP/CHEM",
-      "room": "704",
-      "dayOfWeek": "Friday",
-      "startTime": "08:30",
-      "endTime": "09:20",
-    },
-    {
-      "subject": "Discrete Mathematics",
-      "mentor": "Mrs. N. Subashini /AP/MATHS",
-      "room": "704",
-      "dayOfWeek": "Friday",
-      "startTime": "09:20",
-      "endTime": "10:10",
-    },
-    {
-      "subject": "Operating Systems",
-      "mentor": "Mrs. Keerthanasri /AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Friday",
-      "startTime": "10:10",
-      "endTime": "11:00",
-    },
-    {
-      "subject": "Design Thinking",
-      "mentor": "Mrs. N. Radha /AP/AIDS",
-      "room": "704",
-      "dayOfWeek": "Friday",
-      "startTime": "11:15",
-      "endTime": "12:05",
-    },
-    {
-      "subject": "Digital Electronics and Microprocessors",
-      "mentor": "Mrs. Kalpana /AP/ECE",
-      "room": "704",
-      "dayOfWeek": "Friday",
-      "startTime": "12:05",
-      "endTime": "12:55",
-    },
-  ];
 
-  Future<void> _importData() async {
-    final batch = FirebaseFirestore.instance.batch();
-    final collection = FirebaseFirestore.instance.collection('schedule');
-
-    final existingData = await collection.get();
-    for (var doc in existingData.docs) {
-      batch.delete(doc.reference);
-    }
-
-    for (var item in timetableData) {
-      final newDoc = collection.doc();
-      batch.set(newDoc, item);
-    }
-
-    await batch.commit();
-    _updateHomeScreenWidget();
-    NotificationService.scheduleTimetableNotifications();
-
-    // Log the import action
-    _postAnnouncement(
-      "Full timetable imported successfully!",
-      isSystemMessage: true,
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Timetable Imported Successfully!")),
-      );
-    }
-  }
 
   Future<void> _postAnnouncement(
     String message, {
@@ -472,39 +316,22 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         actions: [
           if (isAdmin) ...[
-            IconButton(
-              tooltip: "Import All Data",
-              icon: const Icon(Icons.auto_fix_high, color: Colors.orange),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text("Import Full Timetable?"),
-                    content: const Text(
-                      "This will replace all current classes with the full timetable list.",
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("Cancel"),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _importData();
-                        },
-                        child: const Text("Import Now"),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+
             IconButton(
               icon: const Icon(Icons.add_circle, color: Color(0xFF673AB7)),
               onPressed: () => _showClassDialog(context),
             ),
           ],
+          IconButton(
+            tooltip: "Settings",
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
+            },
+          ),
           IconButton(
             tooltip: "Notifications",
             icon: Icon(
@@ -608,46 +435,72 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildClassList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('schedule')
-          .where('dayOfWeek', isEqualTo: selectedDay)
-          .snapshots(),
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final docs = snapshot.data!.docs;
-        docs.sort(
-          (a, b) => ((a.data() as Map)['startTime'] ?? '00:00').compareTo(
-            (b.data() as Map)['startTime'] ?? '00:00',
-          ),
-        );
+        final prefs = snapshot.data!;
+        final departmentId = prefs.getString('departmentId');
+        final yearId = prefs.getString('yearId');
+        final sectionId = prefs.getString('sectionId');
 
-        if (docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.event_busy, size: 64, color: Colors.grey[300]),
-                const SizedBox(height: 16),
-                Text(
-                  'No classes on $selectedDay',
-                  style: TextStyle(color: Colors.grey[500]),
-                ),
-              ],
-            ),
+        if (departmentId == null || yearId == null || sectionId == null) {
+          return const Center(
+            child: Text("Please select your class from the settings."),
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: docs.length,
-          itemBuilder: (context, index) => _buildClassCard(docs[index]),
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('departments')
+              .doc(departmentId)
+              .collection('years')
+              .doc(yearId)
+              .collection('sections')
+              .doc(sectionId)
+              .collection('schedule')
+              .where('day', isEqualTo: selectedDay)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final docs = snapshot.data!.docs;
+            docs.sort(
+              (a, b) => ((a.data() as Map)['startTime'] ?? '00:00').compareTo(
+                (b.data() as Map)['startTime'] ?? '00:00',
+              ),
+            );
+
+            if (docs.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.event_busy, size: 64, color: Colors.grey[300]),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No classes on $selectedDay',
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: docs.length,
+              itemBuilder: (context, index) => _buildClassCard(docs[index]),
+            );
+          },
         );
       },
     );
@@ -828,7 +681,7 @@ class _DashboardPageState extends State<DashboardPage> {
               final data = doc.data() as Map<String, dynamic>;
               doc.reference.delete();
               _postAnnouncement(
-                "Class deleted: ${data['subject']} (${data['dayOfWeek']} ${data['startTime']})",
+                "Class deleted: ${data['subject']} (${data['day']} ${data['startTime']})",
                 isSystemMessage: true,
               );
               _updateHomeScreenWidget();
@@ -841,13 +694,18 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  void _showClassDialog(BuildContext context, {DocumentSnapshot? doc}) {
+  void _showClassDialog(BuildContext context, {DocumentSnapshot? doc}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final departmentId = prefs.getString('departmentId');
+    final yearId = prefs.getString('yearId');
+    final sectionId = prefs.getString('sectionId');
+
     final data = doc?.data() as Map<String, dynamic>?;
     final oldData = Map<String, dynamic>.from(data ?? {});
     final subjectController = TextEditingController(text: data?['subject']);
     final mentorController = TextEditingController(text: data?['mentor']);
     final roomController = TextEditingController(text: data?['room']);
-    String addDay = data?['dayOfWeek'] ?? selectedDay;
+    String addDay = data?['day'] ?? selectedDay;
 
     TimeOfDay startTime = const TimeOfDay(hour: 8, minute: 30);
     TimeOfDay endTime = const TimeOfDay(hour: 9, minute: 20);
@@ -932,19 +790,29 @@ class _DashboardPageState extends State<DashboardPage> {
                   'subject': subjectController.text,
                   'mentor': mentorController.text,
                   'room': roomController.text,
-                  'dayOfWeek': addDay,
+                  'day': addDay,
                   'startTime': startStr,
                   'endTime': endStr,
                 };
 
                 if (doc == null) {
-                  FirebaseFirestore.instance
-                      .collection('schedule')
-                      .add(payload);
-                  _postAnnouncement(
-                    "New class added: ${payload['subject']} (${payload['dayOfWeek']} ${payload['startTime']})",
-                    isSystemMessage: true,
-                  );
+                  if (departmentId != null &&
+                      yearId != null &&
+                      sectionId != null) {
+                    FirebaseFirestore.instance
+                        .collection('departments')
+                        .doc(departmentId)
+                        .collection('years')
+                        .doc(yearId)
+                        .collection('sections')
+                        .doc(sectionId)
+                        .collection('schedule')
+                        .add(payload);
+                    _postAnnouncement(
+                      "New class added: ${payload['subject']} (${payload['day']} ${payload['startTime']})",
+                      isSystemMessage: true,
+                    );
+                  }
                 } else {
                   doc.reference.update(payload);
 
