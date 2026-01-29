@@ -16,85 +16,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? selectedYearId;
   String? selectedSectionId;
 
-  List<DropdownMenuItem<String>> departmentItems = [];
-  List<DropdownMenuItem<String>> yearItems = [];
-  List<DropdownMenuItem<String>> sectionItems = [];
-
-  bool areYearsLoading = false;
-  bool areSectionsLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchDepartments();
-  }
-
-  Future<void> _fetchDepartments() async {
-    print("Fetching departments...");
-    try {
-      final snapshot =
-          await FirebaseFirestore.instance.collection('departments').get();
-      print("Found ${snapshot.docs.length} departments.");
-      final items = snapshot.docs.map((doc) {
-        // Assuming each department doc has a 'name' field for display
-        final name = (doc.data())['name'] ?? doc.id;
-        print("Department: $name (ID: ${doc.id})");
-        return DropdownMenuItem(value: doc.id, child: Text(name));
-      }).toList();
-      setState(() {
-        departmentItems = items;
-      });
-    } catch (e) {
-      print("Error fetching departments: $e");
-    }
-  }
-
-  Future<void> _fetchYears(String departmentId) async {
-    setState(() {
-      areYearsLoading = true;
-      selectedYearId = null;
-      selectedSectionId = null;
-      yearItems = [];
-      sectionItems = [];
-    });
-    final snapshot = await FirebaseFirestore.instance
-        .collection('departments')
-        .doc(departmentId)
-        .collection('years')
-        .get();
-    final items = snapshot.docs.map((doc) {
-      final name = (doc.data())['name'] ?? doc.id;
-      return DropdownMenuItem(value: doc.id, child: Text(name));
-    }).toList();
-    setState(() {
-      yearItems = items;
-      areYearsLoading = false;
-    });
-  }
-
-  Future<void> _fetchSections(String departmentId, String yearId) async {
-    setState(() {
-      areSectionsLoading = true;
-      selectedSectionId = null;
-      sectionItems = [];
-    });
-    final snapshot = await FirebaseFirestore.instance
-        .collection('departments')
-        .doc(departmentId)
-        .collection('years')
-        .doc(yearId)
-        .collection('sections')
-        .get();
-    final items = snapshot.docs.map((doc) {
-      final name = (doc.data())['name'] ?? doc.id;
-      return DropdownMenuItem(value: doc.id, child: Text(name));
-    }).toList();
-    setState(() {
-      sectionItems = items;
-      areSectionsLoading = false;
-    });
-  }
-
   Future<void> _saveAndContinue() async {
     if (selectedDepartmentId != null &&
         selectedYearId != null &&
@@ -110,7 +31,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         );
       }
     } else {
-      // Show error
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please make a selection for all fields.')),
       );
@@ -128,56 +48,126 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            DropdownButtonFormField<String>(
-              value: selectedDepartmentId,
-              items: departmentItems,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    selectedDepartmentId = value;
-                  });
-                  _fetchYears(value);
+            // Department Dropdown
+            FutureBuilder<QuerySnapshot>(
+              future: FirebaseFirestore.instance.collection('departments').get(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
                 }
+                if (snapshot.hasError) {
+                  return const Text('Error loading departments');
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Text('No departments found');
+                }
+
+                final departmentItems = snapshot.data!.docs.map((doc) {
+                  final name = (doc.data() as Map<String, dynamic>)['name'] ?? doc.id;
+                  return DropdownMenuItem(value: doc.id, child: Text(name));
+                }).toList();
+
+                return DropdownButtonFormField<String>(
+                  value: selectedDepartmentId,
+                  items: departmentItems,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedDepartmentId = value;
+                      selectedYearId = null;
+                      selectedSectionId = null;
+                    });
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Department',
+                    border: OutlineInputBorder(),
+                  ),
+                );
               },
-              decoration: const InputDecoration(
-                labelText: 'Department',
-                border: OutlineInputBorder(),
-              ),
             ),
             const SizedBox(height: 16),
-            if (areYearsLoading) const Center(child: CircularProgressIndicator()),
-            if (!areYearsLoading && selectedDepartmentId != null)
-              DropdownButtonFormField<String>(
-                value: selectedYearId,
-                items: yearItems,
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      selectedYearId = value;
-                    });
-                    _fetchSections(selectedDepartmentId!, value);
+
+            // Year Dropdown
+            if (selectedDepartmentId != null)
+              FutureBuilder<QuerySnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('departments')
+                    .doc(selectedDepartmentId)
+                    .collection('years')
+                    .get(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
                   }
+                  if (snapshot.hasError) {
+                    return const Text('Error loading years');
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Text('No years found for this department');
+                  }
+
+                  final yearItems = snapshot.data!.docs.map((doc) {
+                    final name = (doc.data() as Map<String, dynamic>)['name'] ?? doc.id;
+                    return DropdownMenuItem(value: doc.id, child: Text(name));
+                  }).toList();
+
+                  return DropdownButtonFormField<String>(
+                    value: selectedYearId,
+                    items: yearItems,
+                    onChanged: (value) {
+                      setState(() {
+                        selectedYearId = value;
+                        selectedSectionId = null;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Year',
+                      border: OutlineInputBorder(),
+                    ),
+                  );
                 },
-                decoration: const InputDecoration(
-                  labelText: 'Year',
-                  border: OutlineInputBorder(),
-                ),
               ),
             const SizedBox(height: 16),
-            if (areSectionsLoading) const Center(child: CircularProgressIndicator()),
-            if (!areSectionsLoading && selectedYearId != null)
-              DropdownButtonFormField<String>(
-                value: selectedSectionId,
-                items: sectionItems,
-                onChanged: (value) {
-                  setState(() {
-                    selectedSectionId = value;
-                  });
+
+            // Section Dropdown
+            if (selectedDepartmentId != null && selectedYearId != null)
+              FutureBuilder<QuerySnapshot>(
+                future: FirebaseFirestore.instance
+                    .collection('departments')
+                    .doc(selectedDepartmentId)
+                    .collection('years')
+                    .doc(selectedYearId)
+                    .collection('sections')
+                    .get(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return const Text('Error loading sections');
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Text('No sections found');
+                  }
+
+                  final sectionItems = snapshot.data!.docs.map((doc) {
+                    final name = (doc.data() as Map<String, dynamic>)['name'] ?? doc.id;
+                    return DropdownMenuItem(value: doc.id, child: Text(name));
+                  }).toList();
+
+                  return DropdownButtonFormField<String>(
+                    value: selectedSectionId,
+                    items: sectionItems,
+                    onChanged: (value) {
+                      setState(() {
+                        selectedSectionId = value;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Section',
+                      border: OutlineInputBorder(),
+                    ),
+                  );
                 },
-                decoration: const InputDecoration(
-                  labelText: 'Section',
-                  border: OutlineInputBorder(),
-                ),
               ),
             const SizedBox(height: 32),
             ElevatedButton(
@@ -190,3 +180,4 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 }
+
