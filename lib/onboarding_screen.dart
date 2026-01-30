@@ -16,6 +16,97 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String? selectedYearId;
   String? selectedSectionId;
 
+  List<DropdownMenuItem<String>> departmentItems = [];
+  List<DropdownMenuItem<String>> yearItems = [];
+  List<DropdownMenuItem<String>> sectionItems = [];
+
+  bool isInitialLoading = true;
+  bool areYearsLoading = false;
+  bool areSectionsLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDepartments();
+  }
+
+  Future<void> _fetchDepartments() async {
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('departments').get();
+      final items = snapshot.docs.map((doc) {
+        final name = (doc.data())['name'] ?? doc.id;
+        return DropdownMenuItem(value: doc.id, child: Text(name));
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          departmentItems = items;
+          isInitialLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          isInitialLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching departments: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchYears(String departmentId) async {
+    setState(() {
+      areYearsLoading = true;
+      selectedYearId = null;
+      selectedSectionId = null;
+      yearItems = [];
+      sectionItems = [];
+    });
+    final snapshot = await FirebaseFirestore.instance
+        .collection('departments')
+        .doc(departmentId)
+        .collection('years')
+        .get();
+    final items = snapshot.docs.map((doc) {
+      final name = (doc.data())['name'] ?? doc.id;
+      return DropdownMenuItem(value: doc.id, child: Text(name));
+    }).toList();
+    if(mounted) {
+      setState(() {
+        yearItems = items;
+        areYearsLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchSections(String departmentId, String yearId) async {
+    setState(() {
+      areSectionsLoading = true;
+      selectedSectionId = null;
+      sectionItems = [];
+    });
+    final snapshot = await FirebaseFirestore.instance
+        .collection('departments')
+        .doc(departmentId)
+        .collection('years')
+        .doc(yearId)
+        .collection('sections')
+        .get();
+    final items = snapshot.docs.map((doc) {
+      final name = (doc.data())['name'] ?? doc.id;
+      return DropdownMenuItem(value: doc.id, child: Text(name));
+    }).toList();
+    if(mounted) {
+      setState(() {
+        sectionItems = items;
+        areSectionsLoading = false;
+      });
+    }
+  }
+
   Future<void> _saveAndContinue() async {
     if (selectedDepartmentId != null &&
         selectedYearId != null &&
@@ -37,147 +128,90 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
+  Widget _buildBody() {
+    if (isInitialLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<String>(
+            value: selectedDepartmentId,
+            items: departmentItems,
+            onChanged: (value) {
+              if (value != null) {
+                _fetchYears(value);
+                setState(() {
+                  selectedDepartmentId = value;
+                });
+              }
+            },
+            decoration: const InputDecoration(
+              labelText: 'Department',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (selectedDepartmentId != null)
+            areYearsLoading
+                ? const Center(child: CircularProgressIndicator())
+                : DropdownButtonFormField<String>(
+              value: selectedYearId,
+              items: yearItems,
+              onChanged: (value) {
+                if (value != null) {
+                  _fetchSections(selectedDepartmentId!, value);
+                  setState(() {
+                    selectedYearId = value;
+                  });
+                }
+              },
+              decoration: const InputDecoration(
+                labelText: 'Year',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          const SizedBox(height: 16),
+          if (selectedYearId != null)
+            areSectionsLoading
+                ? const Center(child: CircularProgressIndicator())
+                : DropdownButtonFormField<String>(
+              value: selectedSectionId,
+              items: sectionItems,
+              onChanged: (value) {
+                setState(() {
+                  selectedSectionId = value;
+                });
+              },
+              decoration: const InputDecoration(
+                labelText: 'Section',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          const Spacer(),
+          ElevatedButton(
+            onPressed: (selectedDepartmentId == null || selectedYearId == null || selectedSectionId == null) ? null : _saveAndContinue,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Text("Continue"),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Select Your Class"),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Department Dropdown
-            FutureBuilder<QuerySnapshot>(
-              future: FirebaseFirestore.instance.collection('departments').get(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return const Text('Error loading departments');
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Text('No departments found');
-                }
-
-                final departmentItems = snapshot.data!.docs.map((doc) {
-                  final name = (doc.data() as Map<String, dynamic>)['name'] ?? doc.id;
-                  return DropdownMenuItem(value: doc.id, child: Text(name));
-                }).toList();
-
-                return DropdownButtonFormField<String>(
-                  value: selectedDepartmentId,
-                  items: departmentItems,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedDepartmentId = value;
-                      selectedYearId = null;
-                      selectedSectionId = null;
-                    });
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Department',
-                    border: OutlineInputBorder(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Year Dropdown
-            if (selectedDepartmentId != null)
-              FutureBuilder<QuerySnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('departments')
-                    .doc(selectedDepartmentId)
-                    .collection('years')
-                    .get(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return const Text('Error loading years');
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Text('No years found for this department');
-                  }
-
-                  final yearItems = snapshot.data!.docs.map((doc) {
-                    final name = (doc.data() as Map<String, dynamic>)['name'] ?? doc.id;
-                    return DropdownMenuItem(value: doc.id, child: Text(name));
-                  }).toList();
-
-                  return DropdownButtonFormField<String>(
-                    value: selectedYearId,
-                    items: yearItems,
-                    onChanged: (value) {
-                      setState(() {
-                        selectedYearId = value;
-                        selectedSectionId = null;
-                      });
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Year',
-                      border: OutlineInputBorder(),
-                    ),
-                  );
-                },
-              ),
-            const SizedBox(height: 16),
-
-            // Section Dropdown
-            if (selectedDepartmentId != null && selectedYearId != null)
-              FutureBuilder<QuerySnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('departments')
-                    .doc(selectedDepartmentId)
-                    .collection('years')
-                    .doc(selectedYearId)
-                    .collection('sections')
-                    .get(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return const Text('Error loading sections');
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Text('No sections found');
-                  }
-
-                  final sectionItems = snapshot.data!.docs.map((doc) {
-                    final name = (doc.data() as Map<String, dynamic>)['name'] ?? doc.id;
-                    return DropdownMenuItem(value: doc.id, child: Text(name));
-                  }).toList();
-
-                  return DropdownButtonFormField<String>(
-                    value: selectedSectionId,
-                    items: sectionItems,
-                    onChanged: (value) {
-                      setState(() {
-                        selectedSectionId = value;
-                      });
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Section',
-                      border: OutlineInputBorder(),
-                    ),
-                  );
-                },
-              ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _saveAndContinue,
-              child: const Text("Continue"),
-            ),
-          ],
-        ),
-      ),
+      body: _buildBody(),
     );
   }
 }
-
