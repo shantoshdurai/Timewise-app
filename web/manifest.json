@@ -1,11 +1,11 @@
 {
-    "name": "flutter_firebase_test",
-    "short_name": "flutter_firebase_test",
+    "name": "Class Now",
+    "short_name": "Class Now",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Class Now - Real-time class schedule management for students and mentors.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

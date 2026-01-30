@@ -7,7 +7,7 @@
 
 
     <application
-        android:label="TimeWise"
+        android:label="Class Now"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

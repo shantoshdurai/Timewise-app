@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_firebase_test/providers/user_selection_provider.dart';
 import 'main.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -10,6 +12,8 @@ class OnboardingScreen extends StatefulWidget {
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
+
+
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   String? selectedDepartmentId;
@@ -31,6 +35,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _fetchDepartments() async {
+    // In a real app, you might want to fetch the user's last selection
+    // from SharedPreferences here to pre-fill the dropdowns.
     try {
       final snapshot =
           await FirebaseFirestore.instance.collection('departments').get();
@@ -65,20 +71,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       yearItems = [];
       sectionItems = [];
     });
-    final snapshot = await FirebaseFirestore.instance
-        .collection('departments')
-        .doc(departmentId)
-        .collection('years')
-        .get();
-    final items = snapshot.docs.map((doc) {
-      final name = (doc.data())['name'] ?? doc.id;
-      return DropdownMenuItem(value: doc.id, child: Text(name));
-    }).toList();
-    if(mounted) {
-      setState(() {
-        yearItems = items;
-        areYearsLoading = false;
-      });
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('departments')
+          .doc(departmentId)
+          .collection('years')
+          .get();
+      final items = snapshot.docs.map((doc) {
+        final name = (doc.data())['name'] ?? doc.id;
+        return DropdownMenuItem(value: doc.id, child: Text(name));
+      }).toList();
+      if(mounted) {
+        setState(() {
+          yearItems = items;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          areYearsLoading = false;
+        });
+      }
     }
   }
 
@@ -88,22 +101,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       selectedSectionId = null;
       sectionItems = [];
     });
-    final snapshot = await FirebaseFirestore.instance
-        .collection('departments')
-        .doc(departmentId)
-        .collection('years')
-        .doc(yearId)
-        .collection('sections')
-        .get();
-    final items = snapshot.docs.map((doc) {
-      final name = (doc.data())['name'] ?? doc.id;
-      return DropdownMenuItem(value: doc.id, child: Text(name));
-    }).toList();
-    if(mounted) {
-      setState(() {
-        sectionItems = items;
-        areSectionsLoading = false;
-      });
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('departments')
+          .doc(departmentId)
+          .collection('years')
+          .doc(yearId)
+          .collection('sections')
+          .get();
+      final items = snapshot.docs.map((doc) {
+        final name = (doc.data())['name'] ?? doc.id;
+        return DropdownMenuItem(value: doc.id, child: Text(name));
+      }).toList();
+      if(mounted) {
+        setState(() {
+          sectionItems = items;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          areSectionsLoading = false;
+        });
+      }
     }
   }
 
@@ -111,10 +131,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (selectedDepartmentId != null &&
         selectedYearId != null &&
         selectedSectionId != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('departmentId', selectedDepartmentId!);
-      await prefs.setString('yearId', selectedYearId!);
-      await prefs.setString('sectionId', selectedSectionId!);
+      
+      await Provider.of<UserSelectionProvider>(context, listen: false)
+          .saveSelection(
+        departmentId: selectedDepartmentId!,
+        yearId: selectedYearId!,
+        sectionId: selectedSectionId!,
+      );
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -129,77 +152,81 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildBody() {
+    final theme = Theme.of(context);
     if (isInitialLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DropdownButtonFormField<String>(
-            value: selectedDepartmentId,
-            items: departmentItems,
-            onChanged: (value) {
-              if (value != null) {
-                _fetchYears(value);
-                setState(() {
-                  selectedDepartmentId = value;
-                });
-              }
-            },
-            decoration: const InputDecoration(
-              labelText: 'Department',
-              border: OutlineInputBorder(),
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Welcome to ClassGrid',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineMedium,
             ),
-          ),
-          const SizedBox(height: 16),
-          if (selectedDepartmentId != null)
-            areYearsLoading
-                ? const Center(child: CircularProgressIndicator())
-                : DropdownButtonFormField<String>(
-              value: selectedYearId,
-              items: yearItems,
+            const SizedBox(height: 8),
+            Text(
+              'Please select your class to get started.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(color: theme.hintColor),
+            ),
+            const SizedBox(height: 32),
+            DropdownButtonFormField<String>(
+              value: selectedDepartmentId,
+              items: departmentItems,
               onChanged: (value) {
                 if (value != null) {
-                  _fetchSections(selectedDepartmentId!, value);
+                  _fetchYears(value);
                   setState(() {
-                    selectedYearId = value;
+                    selectedDepartmentId = value;
                   });
                 }
               },
-              decoration: const InputDecoration(
-                labelText: 'Year',
-                border: OutlineInputBorder(),
+              decoration: const InputDecoration(labelText: 'Department'),
+            ),
+            const SizedBox(height: 16),
+            if (selectedDepartmentId != null)
+              areYearsLoading
+                  ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()))
+                  : DropdownButtonFormField<String>(
+                value: selectedYearId,
+                items: yearItems,
+                onChanged: (value) {
+                  if (value != null) {
+                    _fetchSections(selectedDepartmentId!, value);
+                    setState(() {
+                      selectedYearId = value;
+                    });
+                  }
+                },
+                decoration: const InputDecoration(labelText: 'Year'),
               ),
-            ),
-          const SizedBox(height: 16),
-          if (selectedYearId != null)
-            areSectionsLoading
-                ? const Center(child: CircularProgressIndicator())
-                : DropdownButtonFormField<String>(
-              value: selectedSectionId,
-              items: sectionItems,
-              onChanged: (value) {
-                setState(() {
-                  selectedSectionId = value;
-                });
-              },
-              decoration: const InputDecoration(
-                labelText: 'Section',
-                border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            if (selectedYearId != null)
+              areSectionsLoading
+                  ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()))
+                  : DropdownButtonFormField<String>(
+                value: selectedSectionId,
+                items: sectionItems,
+                onChanged: (value) {
+                  setState(() {
+                    selectedSectionId = value;
+                  });
+                },
+                decoration: const InputDecoration(labelText: 'Section'),
               ),
+            const SizedBox(height: 48),
+            ElevatedButton(
+              onPressed: (selectedDepartmentId == null || selectedYearId == null || selectedSectionId == null) ? null : _saveAndContinue,
+              child: const Text("Continue"),
             ),
-          const Spacer(),
-          ElevatedButton(
-            onPressed: (selectedDepartmentId == null || selectedYearId == null || selectedSectionId == null) ? null : _saveAndContinue,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: const Text("Continue"),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -210,6 +237,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Select Your Class"),
+        centerTitle: true,
       ),
       body: _buildBody(),
     );

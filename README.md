@@ -1,4 +1,4 @@
-# 🕰️ TimeWise
+# 🕰️ Class Now
 
 **Elevate Your Academic Schedule Management**
 
@@ -6,7 +6,7 @@
 [![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white)](https://firebase.google.com)
 [![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
 
-TimeWise is a high-performance Flutter application designed to bridge the gap between students and mentors. It provides a real-time, synchronized timetable management experience powered by Firebase, ensuring that everyone is on the same page, at the same time.
+**Class Now** is a high-performance Flutter application designed to bridge the gap between students and mentors. It provides a real-time, synchronized timetable management experience powered by Firebase, ensuring that everyone is on the same page, at the same time.
 
 ---
 
@@ -49,7 +49,7 @@ TimeWise is a high-performance Flutter application designed to bridge the gap be
 ### Installation
 1. **Clone the Repository:**
    ```bash
-   git clone https://github.com/shantoshdurai/Timewise-app.git
+   git clone https://github.com/shantoshdurai/ClassNow-app.git
    ```
 2. **Install Dependencies:**
    ```bash

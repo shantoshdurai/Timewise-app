@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:flutter_firebase_test/providers/user_selection_provider.dart';
+import 'package:flutter_firebase_test/widgets/skeleton_loader.dart';
 
 class TimetableWidget extends StatefulWidget {
   const TimetableWidget({super.key});
@@ -10,15 +13,13 @@ class TimetableWidget extends StatefulWidget {
   State<TimetableWidget> createState() => _TimetableWidgetState();
 }
 
+
 class _TimetableWidgetState extends State<TimetableWidget> {
   Timer? _timer;
-  String? _selectedSection;
-  List<String> _sections = [];
 
   @override
   void initState() {
     super.initState();
-    _getSections();
     // Update every minute
     _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) setState(() {});
@@ -29,23 +30,6 @@ class _TimetableWidgetState extends State<TimetableWidget> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
-  }
-
-  void _getSections() async {
-    final sectionsSnapshot = await FirebaseFirestore.instance
-        .collection('departments')
-        .doc('school-of-engineering-and-technology')
-        .collection('years')
-        .doc('2024')
-        .collection('sections')
-        .get();
-    final sections = sectionsSnapshot.docs.map((doc) => doc.id).toList();
-    setState(() {
-      _sections = sections;
-      if (_sections.isNotEmpty) {
-        _selectedSection = _sections[0];
-      }
-    });
   }
 
   Map<String, dynamic>? _getCurrentClass(List<DocumentSnapshot> docs) {
@@ -115,222 +99,187 @@ class _TimetableWidgetState extends State<TimetableWidget> {
     
     if (diff.inHours > 0) {
       return '${diff.inHours}h ${diff.inMinutes % 60}m left';
-    } else {
+    } else if (diff.inMinutes > 0) {
       return '${diff.inMinutes}m left';
+    } else {
+      return '${diff.inSeconds}s left';
     }
   }
 
   double _getProgress(DateTime start, DateTime end) {
     final now = DateTime.now();
     final total = end.difference(start).inMinutes;
+    if (total <= 0) return 1.0;
     final elapsed = now.difference(start).inMinutes;
     return (elapsed / total).clamp(0.0, 1.0);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        if (_sections.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            decoration: BoxDecoration(
-              color: Colors.black.withAlpha(179),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: DropdownButton<String>(
-              value: _selectedSection,
-              dropdownColor: Colors.black.withAlpha(217),
-              style: const TextStyle(color: Colors.white),
-              onChanged: (String? newValue) {
-                setState(() {
-                  _selectedSection = newValue!;
-                });
-              },
-              items: _sections.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-            ),
-          ),
-        const SizedBox(height: 10),
-        if (_selectedSection != null)
-          StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('departments')
-                .doc('school-of-engineering-and-technology')
-                .collection('years')
-                .doc('2024')
-                .collection('sections')
-                .doc(_selectedSection)
-                .collection('schedule')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(179),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Center(
-                    child: CircularProgressIndicator(color: Colors.white70),
-                  ),
-                );
-              }
+    final theme = Theme.of(context);
+    return Consumer<UserSelectionProvider>(
+      builder: (context, userSelection, child) {
+        if (!userSelection.hasSelection) {
+          return const SizedBox.shrink(); // Or a placeholder
+        }
 
-              final docs = snapshot.data!.docs;
-              final current = _getCurrentClass(docs);
-              final next = _getNextClass(docs);
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('departments')
+              .doc(userSelection.departmentId)
+              .collection('years')
+              .doc(userSelection.yearId)
+              .collection('sections')
+              .doc(userSelection.sectionId)
+              .collection('schedule')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const TimetableCardSkeleton();
+            }
+            if (snapshot.hasError) {
+              return Card(
+                  elevation: theme.cardTheme.elevation ?? 1,
+                  color: theme.cardColor,
+                  shape: theme.cardTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Center(child: Text("Error: ${snapshot.error}")),
+                  ));
+            }
 
-              if (current == null && next == null) {
-                return Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(179),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Column(
+            final docs = snapshot.data?.docs ?? [];
+            final current = _getCurrentClass(docs);
+            final next = _getNextClass(docs);
+
+            if (current == null && next == null) {
+              return Card(
+                elevation: theme.cardTheme.elevation ?? 1,
+                color: theme.cardColor,
+                shape: theme.cardTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.event_available, color: Colors.white70, size: 32),
-                      SizedBox(height: 12),
+                      Icon(Icons.event_available_outlined, color: theme.hintColor, size: 32),
+                      const SizedBox(height: 12),
                       Text(
-                        'No classes today',
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                        'No More Classes Today',
+                        style: theme.textTheme.titleMedium?.copyWith(color: theme.hintColor),
                       ),
                     ],
                   ),
-                );
-              }
-
-              final display = current ?? next;
-              final data = display!['data'] as Map<String, dynamic>;
-              final isCurrent = display['isCurrent'] as bool;
-
-              return Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(217),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withAlpha(26), width: 1),
                 ),
+              );
+            }
+
+            final display = current ?? next;
+            final data = display!['data'] as Map<String, dynamic>;
+            final isCurrent = display['isCurrent'] as bool;
+
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16.0),
+              elevation: theme.cardTheme.elevation ?? 1,
+              color: theme.cardColor,
+              shape: theme.cardTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Status Label
                     Text(
                       isCurrent ? 'NOW' : 'NEXT UP',
-                      style: TextStyle(
-                        color: isCurrent ? Colors.greenAccent : Colors.blueAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: isCurrent ? theme.colorScheme.secondary : theme.primaryColor,
+                        fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
-                    // Subject Name
                     Text(
                       data['subject'] ?? 'Unknown',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
-                      ),
+                      style: theme.textTheme.titleLarge,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 12),
-                    
-                    // Time & Room
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 14, color: Colors.white.withAlpha(153)),
+                        Icon(Icons.access_time, size: 16, color: theme.hintColor),
                         const SizedBox(width: 6),
                         Text(
                           '${data['startTime']} - ${data['endTime']}',
-                          style: TextStyle(color: Colors.white.withAlpha(179), fontSize: 13),
+                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
                         ),
                         const SizedBox(width: 16),
-                        Icon(Icons.location_on_outlined, size: 14, color: Colors.white.withAlpha(153)),
+                        Icon(Icons.location_on_outlined, size: 16, color: theme.hintColor),
                         const SizedBox(width: 6),
                         Text(
                           'Room ${data['room']}',
-                          style: TextStyle(color: Colors.white.withAlpha(179), fontSize: 13),
+                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
                         ),
                       ],
                     ),
-                    
                     if (isCurrent) ...[
                       const SizedBox(height: 16),
-                      // Progress Bar
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: _getProgress(display['start'], display['end']),
-                          backgroundColor: Colors.white.withAlpha(26),
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.greenAccent),
-                          minHeight: 4,
+                          backgroundColor: theme.dividerColor,
+                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
+                          minHeight: 6,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // Time Remaining
                       Text(
                         _getTimeRemaining(display['end']),
-                        style: const TextStyle(
-                          color: Colors.greenAccent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.secondary,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ] else ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       Text(
                         'Starts in ${_getTimeRemaining(display['start']).replaceAll(' left', '')}',
-                        style: const TextStyle(
-                          color: Colors.blueAccent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
-                    
-                    // Next class preview (if currently in a class)
                     if (isCurrent && next != null) ...[
                       const SizedBox(height: 16),
-                      Divider(color: Colors.white.withAlpha(26), height: 1),
+                      Divider(height: 1, color: theme.dividerColor),
                       const SizedBox(height: 12),
                       Text(
                         'UP NEXT',
-                        style: TextStyle(
-                          color: Colors.white.withAlpha(128),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.hintColor,
+                          fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         (next['data'] as Map<String, dynamic>)['subject'] ?? 'Unknown',
-                        style: TextStyle(
-                          color: Colors.white.withAlpha(179),
-                          fontSize: 14,
-                        ),
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ],
                 ),
-              );
-            },
-          ),
-      ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

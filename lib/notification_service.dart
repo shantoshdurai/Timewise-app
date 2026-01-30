@@ -3,6 +3,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
@@ -40,12 +41,10 @@ class NotificationService {
 
     if (!enabled) return;
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('schedule')
-        .get();
+    // Try to get schedule data with offline fallback
+    List<Map<String, dynamic>> scheduleData = await _getScheduleDataWithOffline();
 
-    for (var doc in snapshot.docs) {
-      final data = doc.data();
+    for (var data in scheduleData) {
       final dayOfWeek = data['dayOfWeek'] as String;
       final startTimeStr = data['startTime'] as String;
       final subject = data['subject'] as String;
@@ -59,7 +58,7 @@ class NotificationService {
       final minute = int.parse(timeParts[1]);
 
       await _scheduleWeekly(
-        id: doc.id.hashCode,
+        id: data['id']?.hashCode ?? data.toString().hashCode,
         title: 'Class Starting Soon: $subject',
         body: 'Room: $room starts in $minutesBefore minutes.',
         dayIndex: dayIndex,
@@ -68,6 +67,53 @@ class NotificationService {
         leadMinutes: minutesBefore,
       );
     }
+  }
+
+  static Future<List<Map<String, dynamic>>> _getScheduleDataWithOffline() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    try {
+      // Try online first
+      final snapshot = await FirebaseFirestore.instance
+          .collection('schedule')
+          .get(const GetOptions(source: Source.server));
+      
+      final scheduleData = snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+      
+      // Cache the data for offline use
+      await _cacheScheduleData(scheduleData);
+      return scheduleData;
+      
+    } catch (e) {
+      // Fallback to cached data
+      return await _getCachedScheduleData();
+    }
+  }
+
+  static Future<void> _cacheScheduleData(List<Map<String, dynamic>> scheduleData) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = jsonEncode(scheduleData);
+    await prefs.setString('cached_schedule_data', jsonString);
+    await prefs.setString('schedule_cache_updated', DateTime.now().toIso8601String());
+  }
+
+  static Future<List<Map<String, dynamic>>> _getCachedScheduleData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString('cached_schedule_data');
+    
+    if (jsonString != null) {
+      try {
+        final List<dynamic> jsonList = jsonDecode(jsonString);
+        return jsonList.cast<Map<String, dynamic>>();
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
   }
 
   static Future<void> _scheduleWeekly({
@@ -104,7 +150,7 @@ class NotificationService {
       scheduledDate,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'timewise_classes',
+          'classnow_classes',
           'Class Reminders',
           channelDescription: 'Notifications for upcoming classes',
           importance: Importance.max,
@@ -118,6 +164,40 @@ class NotificationService {
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
+  }
+
+  static Future<void> refreshNotificationsWhenOnline() async {
+    try {
+      // Check if we can reach Firestore
+      await FirebaseFirestore.instance.collection('schedule').limit(1).get(const GetOptions(source: Source.server));
+      
+      // If successful, refresh notifications with latest data
+      await scheduleTimetableNotifications();
+    } catch (e) {
+      // Still offline, keep using cached data
+      print('Still offline, using cached notification data');
+    }
+  }
+
+  static Future<String> getCacheStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedTime = prefs.getString('schedule_cache_updated');
+    
+    if (cachedTime != null) {
+      final cacheTime = DateTime.parse(cachedTime);
+      final now = DateTime.now();
+      final difference = now.difference(cacheTime);
+      
+      if (difference.inHours < 1) {
+        return 'Cached: ${difference.inMinutes} min ago';
+      } else if (difference.inDays < 1) {
+        return 'Cached: ${difference.inHours} hours ago';
+      } else {
+        return 'Cached: ${difference.inDays} days ago';
+      }
+    }
+    
+    return 'No cache';
   }
 
   static int _getDayIndex(String day) {
