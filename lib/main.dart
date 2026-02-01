@@ -1,14 +1,21 @@
-import 'dart:convert';
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'static_widget.dart';
 import 'notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
+import 'dart:async';
+import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter_firebase_test/onboarding_screen.dart';
 import 'package:flutter_firebase_test/settings_page.dart';
@@ -28,8 +35,66 @@ import 'package:flutter_firebase_test/retro_digital_display.dart';
 // Global ValueNotifier for retro display setting
 final retroDisplayEnabledNotifier = ValueNotifier<bool>(true);
 
+// Custom text styles for consistent typography
+class AppTextStyles {
+  static TextStyle get interTitle => const TextStyle(
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.5,
+  );
+  
+  static TextStyle get interSubtitle => const TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.2,
+  );
+  
+  static TextStyle get interBadge => const TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.3,
+  );
+  
+  static TextStyle get interLiveNow => const TextStyle(
+    fontSize: 10,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 1.2,
+  );
+  
+  static TextStyle get interSubject => const TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.3,
+  );
+  
+  static TextStyle get interProgress => const TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.1,
+  );
+  
+  static TextStyle get interMentor => const TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.1,
+  );
+  
+  static TextStyle get interNext => const TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+  );
+  
+  static TextStyle get interSmall => const TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    letterSpacing: 0.1,
+  );
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   await Firebase.initializeApp();
   FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
   try {
@@ -135,6 +200,9 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
       }
     });
     NotificationService.scheduleTimetableNotifications();
+    
+    // Trigger during-class notification immediately if needed
+    NotificationService.triggerDuringClassNotification();
     _startConnectivityMonitoring();
 
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
@@ -163,6 +231,26 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
     
     // Initial check
     _checkConnectivity();
+    
+    // Start automatic widget updates every minute
+    Timer.periodic(const Duration(minutes: 1), (timer) async {
+      if (!mounted) return;
+      if (widgetsEnabled) {
+        await _updateHomeScreenWidget();
+      }
+    });
+    
+    // Start automatic notification refresh every 5 minutes
+    Timer.periodic(const Duration(minutes: 5), (timer) async {
+      if (!mounted) return;
+      await NotificationService.refreshNotificationsWhenOnline();
+    });
+    
+    // Check for during-class notifications every 2 minutes
+    Timer.periodic(const Duration(minutes: 2), (timer) async {
+      if (!mounted) return;
+      await NotificationService.triggerDuringClassNotification();
+    });
   }
 
   Future<void> _checkConnectivity() async {
@@ -963,13 +1051,36 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
           children: [
             Text(
               'Class Now',
-              style: theme.textTheme.headlineSmall,
-            ),
-            Text(
-              isAdmin ? "MENTOR MODE" : "Student View",
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: isAdmin ? theme.colorScheme.secondary : theme.hintColor,
+              style: AppTextStyles.interTitle.copyWith(
+                color: theme.colorScheme.onPrimary,
               ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isAdmin ? "Mentor Mode" : "Student View",
+                  style: AppTextStyles.interSubtitle.copyWith(
+                    color: isAdmin ? theme.colorScheme.secondary : theme.hintColor,
+                  ),
+                ),
+                if (!isAdmin && _getCurrentClassInfo() != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _getCurrentClassInfo()!,
+                      style: AppTextStyles.interBadge.copyWith(
+                        color: theme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
@@ -1269,7 +1380,7 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Enjoy your time. Pull down to refresh when you’re online.',
+                  'Enjoy your time. Pull down to refresh when you\'re online.',
                   style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
                   textAlign: TextAlign.center,
                 ),
@@ -1280,95 +1391,481 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
       );
     }
 
+    final now = DateTime.now();
+    final currentTime = DateFormat('HH:mm').format(now);
+    final currentDay = DateFormat('EEEE').format(now);
+    
+    _ScheduleItem? currentClass;
+    final List<_ScheduleItem> upcomingClasses = [];
+    final List<_ScheduleItem> completedClasses = [];
+    
+    for (var doc in docs) {
+      final startTime = doc.data['startTime'] ?? '';
+      final endTime = doc.data['endTime'] ?? '';
+      
+      if (_isTimeInRange(currentTime, startTime, endTime) && selectedDay == currentDay) {
+        currentClass = doc;
+      } else if (_isTimeBefore(currentTime, startTime) && selectedDay == currentDay) {
+        upcomingClasses.add(doc);
+      } else {
+        completedClasses.add(doc);
+      }
+    }
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
-      itemCount: docs.length,
-      itemBuilder: (context, index) => _buildClassCardFromItem(docs[index]),
+      itemCount: (currentClass != null ? 1 : 0) + upcomingClasses.length + completedClasses.length,
+      itemBuilder: (context, index) {
+        if (currentClass != null && index == 0) {
+          return _buildCurrentClassCard(currentClass);
+        } else {
+          final adjustedIndex = currentClass != null ? index - 1 : index;
+          if (adjustedIndex < upcomingClasses.length) {
+            return _buildUpcomingClassCard(upcomingClasses[adjustedIndex], adjustedIndex == 0 && currentClass == null);
+          } else {
+            final completedIndex = adjustedIndex - upcomingClasses.length;
+            return _buildCompletedClassCard(completedClasses[completedIndex]);
+          }
+        }
+      },
     );
   }
 
-  Widget _buildClassCardFromItem(_ScheduleItem item) {
+  String? _getCurrentClassInfo() {
+    if (isAdmin) return null;
+    
+    final now = DateTime.now();
+    final currentTime = DateFormat('HH:mm').format(now);
+    final currentDay = DateFormat('EEEE').format(now);
+    
+    if (_cachedSchedule.isEmpty) return null;
+    
+    for (var classData in _cachedSchedule) {
+      final dayOfWeek = classData['dayOfWeek'] as String?;
+      final startTime = classData['startTime'] as String?;
+      final endTime = classData['endTime'] as String?;
+      final room = classData['room'] as String?;
+      
+      if (dayOfWeek == currentDay && 
+          startTime != null && 
+          endTime != null && 
+          _isTimeInRange(currentTime, startTime, endTime)) {
+        return room ?? 'TBD';
+      }
+    }
+    
+    return null;
+  }
+
+  bool _isTimeInRange(String currentTime, String startTime, String endTime) {
+    try {
+      final current = DateFormat('HH:mm').parse(currentTime);
+      final start = DateFormat('HH:mm').parse(startTime);
+      final end = DateFormat('HH:mm').parse(endTime);
+      
+      return (current.isAfter(start) || current.isAtSameMomentAs(start)) && 
+             (current.isBefore(end) || current.isAtSameMomentAs(end));
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  bool _isTimeBefore(String currentTime, String startTime) {
+    try {
+      final current = DateFormat('HH:mm').parse(currentTime);
+      final start = DateFormat('HH:mm').parse(startTime);
+      return current.isBefore(start);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Widget _buildCurrentClassCard(_ScheduleItem item) {
     final theme = Theme.of(context);
     final data = item.data;
     final start = data['startTime'] ?? '--:--';
     final end = data['endTime'] ?? '--:--';
-
-    bool isCompleted = false;
-    if (selectedDay == DateFormat('EEEE').format(DateTime.now())) {
-      final now = DateTime.now();
-      final endParts = end.split(':');
-      if (endParts.length == 2) {
-        final endTime = DateTime(
-            now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1]));
-        isCompleted = now.isAfter(endTime);
+    
+    // Calculate progress
+    final now = DateTime.now();
+    final currentTime = DateFormat('HH:mm').format(now);
+    double progress = 0.0;
+    
+    try {
+      final current = DateFormat('HH:mm').parse(currentTime);
+      final classStart = DateFormat('HH:mm').parse(start);
+      final classEnd = DateFormat('HH:mm').parse(end);
+      
+      final totalDuration = classEnd.difference(classStart).inMinutes;
+      final elapsedDuration = current.difference(classStart).inMinutes;
+      
+      if (totalDuration > 0) {
+        progress = (elapsedDuration / totalDuration).clamp(0.0, 1.0);
       }
+    } catch (e) {
+      progress = 0.0;
     }
 
-    return Opacity(
-      opacity: isCompleted ? 0.5 : 1.0,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.primaryColor.withOpacity(0.1),
+            theme.primaryColor.withOpacity(0.05),
+          ],
+        ),
+        border: Border.all(
+          color: theme.primaryColor.withOpacity(0.3),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.primaryColor.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Card(
-        margin: const EdgeInsets.only(bottom: 16),
-        elevation: theme.cardTheme.elevation ?? 1,
-        color: theme.cardColor,
-        shape: theme.cardTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: InkWell(
-          onLongPress: (isAdmin && item.doc != null) ? () => _showEditOptions(item.doc!) : null,
-          borderRadius: BorderRadius.circular(16),
+        margin: EdgeInsets.zero,
+        elevation: 0,
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with LIVE indicator
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'LIVE NOW',
+                          style: AppTextStyles.interLiveNow.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "$start - $end",
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Subject name
+              Text(
+                data['subject'] ?? 'No Subject',
+                style: AppTextStyles.interSubject.copyWith(
+                  color: theme.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // Progress bar
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Class Progress',
+                        style: AppTextStyles.interProgress.copyWith(
+                          color: theme.hintColor,
+                        ),
+                      ),
+                      Text(
+                        '${(progress * 100).toInt()}%',
+                        style: AppTextStyles.interProgress.copyWith(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: progress,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Mentor and Room info
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.person, size: 16, color: theme.primaryColor),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    data['mentor'] ?? 'Unknown',
+                    style: AppTextStyles.interMentor,
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.location_on, size: 16, color: theme.primaryColor),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Room ${data['room'] ?? 'TBD'}",
+                    style: AppTextStyles.interMentor,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpcomingClassCard(_ScheduleItem item, bool isFirst) {
+    final theme = Theme.of(context);
+    final data = item.data;
+    final start = data['startTime'] ?? '--:--';
+    final end = data['endTime'] ?? '--:--';
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.outline.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: InkWell(
+            onLongPress: (isAdmin && item.doc != null) ? () => _showEditOptions(item.doc!) : null,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (isFirst)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'NEXT',
+                            style: AppTextStyles.interLiveNow.copyWith(
+                              color: Colors.orange,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          "$start - $end",
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    data['subject'] ?? 'No Subject',
+                    style: AppTextStyles.interNext,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.person_outline, size: 16, color: theme.hintColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        data['mentor'] ?? 'Unknown',
+                        style: AppTextStyles.interSmall.copyWith(
+                          color: theme.hintColor,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(Icons.location_on_outlined, size: 16, color: theme.hintColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Room ${data['room'] ?? 'TBD'}",
+                        style: AppTextStyles.interSmall.copyWith(
+                          color: theme.hintColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompletedClassCard(_ScheduleItem item) {
+    final theme = Theme.of(context);
+    final data = item.data;
+    final start = data['startTime'] ?? '--:--';
+    final end = data['endTime'] ?? '--:--';
+    
+    return Opacity(
+      opacity: 0.6,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Card(
+          elevation: 0,
+          color: theme.colorScheme.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: theme.primaryColor.withOpacity(0.1),
+                        color: Colors.grey.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        "$start - $end",
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.primaryColor,
-                          fontWeight: FontWeight.bold,
+                        'COMPLETED',
+                        style: AppTextStyles.interLiveNow.copyWith(
+                          color: Colors.grey,
+                          fontSize: 9,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
-                    if (isAdmin)
-                      Icon(
-                        Icons.edit_note,
-                        size: 20,
+                    const Spacer(),
+                    Text(
+                      "$start - $end",
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.hintColor,
+                        fontWeight: FontWeight.w500,
                       ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
                 Text(
                   data['subject'] ?? 'No Subject',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  style: AppTextStyles.interNext.copyWith(
+                    decoration: TextDecoration.lineThrough,
                     decorationColor: theme.hintColor,
+                    color: theme.hintColor,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                    letterSpacing: -0.1,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.person_outline, size: 16, color: theme.hintColor),
+                    Icon(Icons.person_outline, size: 14, color: theme.hintColor),
                     const SizedBox(width: 4),
                     Text(
                       data['mentor'] ?? 'Unknown',
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                      style: AppTextStyles.interSmall.copyWith(
+                        color: theme.hintColor,
+                        fontSize: 12,
+                      ),
                     ),
                     const Spacer(),
-                    Icon(Icons.location_on_outlined, size: 16, color: theme.hintColor),
+                    Icon(Icons.location_on_outlined, size: 14, color: theme.hintColor),
                     const SizedBox(width: 4),
                     Text(
                       "Room ${data['room'] ?? 'TBD'}",
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                      style: AppTextStyles.interSmall.copyWith(
+                        color: theme.hintColor,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),

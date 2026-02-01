@@ -3,6 +3,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'dart:convert';
 
 class NotificationService {
@@ -47,12 +48,14 @@ class NotificationService {
     for (var data in scheduleData) {
       final dayOfWeek = data['dayOfWeek'] as String;
       final startTimeStr = data['startTime'] as String;
+      final endTimeStr = data['endTime'] as String?;
       final subject = data['subject'] as String;
       final room = data['room'] as String;
 
       final dayIndex = _getDayIndex(dayOfWeek);
       if (dayIndex == -1) continue;
 
+      // Schedule before-class notification
       final timeParts = startTimeStr.split(':');
       final hour = int.parse(timeParts[0]);
       final minute = int.parse(timeParts[1]);
@@ -66,6 +69,19 @@ class NotificationService {
         minute: minute,
         leadMinutes: minutesBefore,
       );
+      
+      // Schedule during-class notification (5 minutes after class starts)
+      if (endTimeStr != null) {
+        await _scheduleWeekly(
+          id: (data['id']?.hashCode ?? data.toString().hashCode) + 10000,
+          title: 'Class in Progress: $subject',
+          body: 'Currently in Room: $room',
+          dayIndex: dayIndex,
+          hour: hour,
+          minute: minute + 5, // 5 minutes after class starts
+          leadMinutes: -5, // Negative means after start
+        );
+      }
     }
   }
 
@@ -133,7 +149,14 @@ class NotificationService {
       now.day,
       hour,
       minute,
-    ).subtract(Duration(minutes: leadMinutes));
+    );
+
+    // Handle negative lead minutes (after class starts)
+    if (leadMinutes < 0) {
+      scheduledDate = scheduledDate.add(Duration(minutes: -leadMinutes));
+    } else {
+      scheduledDate = scheduledDate.subtract(Duration(minutes: leadMinutes));
+    }
 
     while (scheduledDate.weekday != dayIndex) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
@@ -164,6 +187,66 @@ class NotificationService {
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
+  }
+
+  static Future<void> triggerDuringClassNotification() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool enabled = prefs.getBool('notifications_enabled') ?? true;
+    
+    if (!enabled) return;
+    
+    try {
+      final scheduleData = await _getScheduleDataWithOffline();
+      final now = DateTime.now();
+      final currentTime = DateFormat('HH:mm').format(now);
+      final currentDay = DateFormat('EEEE').format(now);
+      
+      for (var data in scheduleData) {
+        final dayOfWeek = data['dayOfWeek'] as String;
+        final startTime = data['startTime'] as String;
+        final endTime = data['endTime'] as String?;
+        final subject = data['subject'] as String;
+        final room = data['room'] as String;
+        
+        if (dayOfWeek == currentDay && _isTimeInRange(currentTime, startTime, endTime)) {
+          await _notifications.show(
+            data.hashCode + 20000,
+            'Class in Progress: $subject',
+            'Currently in Room: $room',
+            const NotificationDetails(
+              android: AndroidNotificationDetails(
+                'classnow_classes',
+                'Class Reminders',
+                channelDescription: 'Notifications for upcoming classes',
+                importance: Importance.max,
+                priority: Priority.high,
+                styleInformation: BigTextStyleInformation(''),
+              ),
+            ),
+          );
+          break; // Only show one during-class notification
+        }
+      }
+    } catch (e) {
+      print('Error triggering during-class notification: $e');
+    }
+  }
+  
+  static bool _isTimeInRange(String currentTime, String startTime, String? endTime) {
+    try {
+      final current = DateFormat('HH:mm').parse(currentTime);
+      final start = DateFormat('HH:mm').parse(startTime);
+      
+      if (endTime == null) {
+        return current.isAfter(start) || current.isAtSameMomentAs(start);
+      }
+      
+      final end = DateFormat('HH:mm').parse(endTime);
+      return (current.isAfter(start) || current.isAtSameMomentAs(start)) && 
+             (current.isBefore(end) || current.isAtSameMomentAs(end));
+    } catch (e) {
+      return false;
+    }
   }
 
   static Future<void> refreshNotificationsWhenOnline() async {
