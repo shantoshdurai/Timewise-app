@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_firebase_test/subject_utils.dart';
 
 // --- EXISTING LARGE WIDGET ---
 class StaticTimetableWidget extends StatelessWidget {
@@ -27,10 +27,7 @@ class StaticTimetableWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white24, width: 0.5),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: _buildContent(),
-      ),
+      child: Material(color: Colors.transparent, child: _buildContent()),
     );
   }
 
@@ -63,7 +60,9 @@ class StaticTimetableWidget extends StatelessWidget {
             Text(
               isCurrent ? 'NOW' : 'NEXT UP',
               style: TextStyle(
-                color: isCurrent ? const Color(0xFFA7F3D0) : const Color(0xFFBAE6FD),
+                color: isCurrent
+                    ? const Color(0xFFA7F3D0)
+                    : const Color(0xFFBAE6FD),
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.2,
@@ -81,21 +80,49 @@ class StaticTimetableWidget extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          displayData['subject'] ?? 'Unknown',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            height: 1.1,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: isCurrent
+                    ? const Color(0xFF10B981).withOpacity(0.2)
+                    : const Color(0xFF0EA5E9).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                SubjectUtils.getSubjectIcon(displayData['subject']),
+                color: isCurrent
+                    ? const Color(0xFF6EE7B7)
+                    : const Color(0xFF7DD3FC),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                displayData['subject'] ?? 'Unknown',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  height: 1.1,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
         const Spacer(),
         Row(
           children: [
-            const Icon(Icons.location_on_outlined, size: 14, color: Colors.white70),
+            const Icon(
+              Icons.location_on_outlined,
+              size: 14,
+              color: Colors.white70,
+            ),
             const SizedBox(width: 4),
             Text(
               '${displayData['room']}',
@@ -115,7 +142,9 @@ class StaticTimetableWidget extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.white10,
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF34D399),
+              ),
               minHeight: 3,
             ),
           ),
@@ -131,12 +160,8 @@ enum RobotMood { happy, focused, waiting }
 class SmallRobotWidget extends StatelessWidget {
   final Map<String, dynamic>? currentClass;
   final Map<String, dynamic>? nextClass;
-  
-  const SmallRobotWidget({
-    super.key,
-    this.currentClass,
-    this.nextClass,
-  });
+
+  const SmallRobotWidget({super.key, this.currentClass, this.nextClass});
 
   @override
   Widget build(BuildContext context) {
@@ -177,7 +202,7 @@ class SmallRobotWidget extends StatelessWidget {
                     color: themeColor.withAlpha(26),
                     blurRadius: 40,
                     spreadRadius: 10,
-                  )
+                  ),
                 ],
               ),
             ),
@@ -243,7 +268,11 @@ class RobotEyePainter extends CustomPainter {
   final Color color;
   final bool isLeft;
 
-  RobotEyePainter({required this.mood, required this.color, required this.isLeft});
+  RobotEyePainter({
+    required this.mood,
+    required this.color,
+    required this.isLeft,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -266,20 +295,21 @@ class RobotEyePainter extends CustomPainter {
       Path cutPath = Path()
         ..moveTo(-5, size.height)
         ..quadraticBezierTo(
-          size.width / 2, size.height / 2, 
-          size.width + 5, size.height
+          size.width / 2,
+          size.height / 2,
+          size.width + 5,
+          size.height,
         )
         ..lineTo(size.width + 5, size.height + 10)
         ..lineTo(-5, size.height + 10)
         ..close();
-      
+
       eyePath = Path.combine(PathOperation.difference, eyePath, cutPath);
-    } 
-    else if (mood == RobotMood.focused) {
+    } else if (mood == RobotMood.focused) {
       // Sharp top cut (Determined/Focused)
       double cutHeight = size.height * 0.4;
       Path cutPath = Path();
-      
+
       if (isLeft) {
         cutPath.moveTo(-5, -5);
         cutPath.lineTo(size.width + 5, -5);
@@ -292,15 +322,14 @@ class RobotEyePainter extends CustomPainter {
         cutPath.lineTo(-5, cutHeight);
       }
       cutPath.close();
-      
+
       eyePath = Path.combine(PathOperation.difference, eyePath, cutPath);
-    }
-    else if (mood == RobotMood.waiting) {
+    } else if (mood == RobotMood.waiting) {
       // Tired/Waiting cut (Simple top straight cut)
       double cutHeight = size.height * 0.3;
       Path cutPath = Path()
         ..addRect(Rect.fromLTWH(-5, -5, size.width + 10, cutHeight + 5));
-      
+
       eyePath = Path.combine(PathOperation.difference, eyePath, cutPath);
     }
 
@@ -317,6 +346,6 @@ class RobotEyePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant RobotEyePainter oldDelegate) => 
-    oldDelegate.mood != mood || oldDelegate.color != color;
+  bool shouldRepaint(covariant RobotEyePainter oldDelegate) =>
+      oldDelegate.mood != mood || oldDelegate.color != color;
 }

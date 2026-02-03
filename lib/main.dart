@@ -22,6 +22,7 @@ import 'package:flutter_firebase_test/providers/user_selection_provider.dart';
 import 'package:flutter_firebase_test/widgets/skeleton_loader.dart';
 import 'package:flutter_firebase_test/retro_digital_display.dart';
 import 'package:flutter_firebase_test/splash_screen.dart';
+import 'package:flutter_firebase_test/subject_utils.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -1883,12 +1884,31 @@ class _DashboardPageState extends State<DashboardPage>
               ),
               const SizedBox(height: 16),
 
-              // Subject name
-              Text(
-                data['subject'] ?? 'No Subject',
-                style: AppTextStyles.interSubject.copyWith(
-                  color: theme.primaryColor,
-                ),
+              // Subject name with dynamic icon
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      SubjectUtils.getSubjectIcon(data['subject']),
+                      color: theme.primaryColor,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      data['subject'] ?? 'No Subject',
+                      style: AppTextStyles.interSubject.copyWith(
+                        color: theme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 
@@ -2053,9 +2073,21 @@ class _DashboardPageState extends State<DashboardPage>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    data['subject'] ?? 'No Subject',
-                    style: AppTextStyles.interNext,
+                  Row(
+                    children: [
+                      Icon(
+                        SubjectUtils.getSubjectIcon(data['subject']),
+                        size: 20,
+                        color: theme.primaryColor.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          data['subject'] ?? 'No Subject',
+                          style: AppTextStyles.interNext,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -2148,16 +2180,28 @@ class _DashboardPageState extends State<DashboardPage>
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  data['subject'] ?? 'No Subject',
-                  style: AppTextStyles.interNext.copyWith(
-                    decoration: TextDecoration.lineThrough,
-                    decorationColor: theme.hintColor,
-                    color: theme.hintColor,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
-                    letterSpacing: -0.1,
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      SubjectUtils.getSubjectIcon(data['subject']),
+                      size: 18,
+                      color: theme.hintColor,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        data['subject'] ?? 'No Subject',
+                        style: AppTextStyles.interNext.copyWith(
+                          decoration: TextDecoration.lineThrough,
+                          decorationColor: theme.hintColor,
+                          color: theme.hintColor,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Row(
