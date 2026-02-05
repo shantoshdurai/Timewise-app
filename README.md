@@ -65,13 +65,13 @@
 
 <div align="center">
 
-| Glassmorphism UI | Notification Settings | Live Classes |
-|:---:|:---:|:---:|
-| ![Premium UI](screenshots/glassmorphism.png) | ![Notifications](screenshots/notifications.png) | ![Dashboard](screenshots/dashboard.png) |
+| Premium Glassmorphism UI | Notification Settings |
+|:---:|:---:|
+| ![Premium UI](screenshots/glassmorphism.png) | ![Notifications](screenshots/notifications.png) |
 
-| Home Widget | Dark Mode | Onboarding |
-|:---:|:---:|:---:|
-| ![Widget](screenshots/widget.png) | ![Dark](screenshots/dark_mode.png) | ![Onboarding](screenshots/onboarding.png) |
+| Dashboard | Announcement Hub |
+|:---:|:---:|
+| ![Dashboard](screenshots/dashboard.jpeg) | ![Announcements](screenshots/announcements.png) |
 
 </div>
 
