@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_firebase_test/notification_service.dart';
+import 'package:flutter_firebase_test/widgets/glass_widgets.dart';
+import 'package:flutter_firebase_test/app_theme.dart';
 
 class NotificationSettingsPage extends StatefulWidget {
   const NotificationSettingsPage({super.key});
@@ -16,6 +18,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   bool _allSubjects = true;
   List<String> _subjects = [];
   List<String> _selectedSubjects = [];
+  int _leadTimeMinutes = 15; // Default 15 minutes before class
 
   @override
   void initState() {
@@ -31,6 +34,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
     final all = prefs.getBool('notifications_all_subjects') ?? true;
     final selected =
         prefs.getStringList('notification_selected_subjects') ?? [];
+    final leadTime = prefs.getInt('notifications_lead_time') ?? 15;
 
     final uniqueSubjects = await NotificationService.getUniqueSubjects();
 
@@ -40,6 +44,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         _allSubjects = all;
         _selectedSubjects = selected;
         _subjects = uniqueSubjects;
+        _leadTimeMinutes = leadTime;
         _isLoading = false;
       });
     }
@@ -53,6 +58,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       'notification_selected_subjects',
       _selectedSubjects,
     );
+    await prefs.setInt('notifications_lead_time', _leadTimeMinutes);
 
     await NotificationService.scheduleTimetableNotifications();
   }
@@ -107,6 +113,158 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 const Divider(height: 32),
 
                 if (_notificationsEnabled) ...[
+                  // Premium Glassmorphism Notification Timing Card
+                  GlassCard(
+                    blur: 15,
+                    opacity: 0.08,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header with animated gradient icon
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppTheme.primaryBlue,
+                                    AppTheme.accentPurple,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryBlue.withOpacity(
+                                      0.4,
+                                    ),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.schedule_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Notification Timing',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Remind me before class starts',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.hintColor.withOpacity(0.8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Premium Slider
+                        Row(
+                          children: [
+                            Text(
+                              '5',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.hintColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Expanded(
+                              child: SliderTheme(
+                                data: SliderThemeData(
+                                  activeTrackColor: AppTheme.primaryBlue,
+                                  inactiveTrackColor: theme.hintColor
+                                      .withOpacity(0.2),
+                                  thumbColor: Colors.white,
+                                  overlayColor: AppTheme.primaryBlue
+                                      .withOpacity(0.2),
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 12,
+                                    elevation: 4,
+                                  ),
+                                  trackHeight: 4,
+                                ),
+                                child: Slider(
+                                  value: _leadTimeMinutes.toDouble(),
+                                  min: 5,
+                                  max: 30,
+                                  divisions: 3,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _leadTimeMinutes = value.toInt();
+                                    });
+                                  },
+                                  onChangeEnd: (value) {
+                                    _saveSettings();
+                                  },
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '30',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.hintColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Glowing Badge
+                        Center(
+                          child: GlowingCard(
+                            glowColor: AppTheme.primaryBlue,
+                            glowRadius: 8,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 18,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '$_leadTimeMinutes minutes before',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: AppTheme.primaryBlue,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   SwitchListTile(
                     title: Text(
                       'All Classes',

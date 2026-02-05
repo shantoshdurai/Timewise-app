@@ -53,8 +53,8 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
-    // Add a minimum delay to show the cute animation
-    final minDelay = Future.delayed(const Duration(seconds: 3));
+    // Reduced delay for faster startup
+    final minDelay = Future.delayed(const Duration(milliseconds: 800));
 
     try {
       // 1. Initialize Firebase core
@@ -65,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen>
         persistenceEnabled: true,
       );
 
-      // 3. Initialize services
+      // 3. Initialize services in parallel
       await Future.wait([
         NotificationService.init(),
         _initWorkmanager(),
@@ -92,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 800),
+          transitionDuration: const Duration(milliseconds: 300),
         ),
       );
     }

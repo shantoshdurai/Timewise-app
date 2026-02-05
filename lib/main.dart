@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:home_widget/home_widget.dart';
 
 import 'notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,6 +27,7 @@ import 'package:flutter_firebase_test/subject_utils.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
+  // For Workmanager
   Workmanager().executeTask((task, inputData) async {
     print("Native called background task: $task");
     try {
@@ -36,6 +38,20 @@ void callbackDispatcher() {
     }
     return Future.value(true);
   });
+}
+
+// Separate callback for home_widget background clicks
+@pragma('vm:entry-point')
+Future<void> homeWidgetBackgroundCallback(Uri? uri) async {
+  print("HomeWidget background click: $uri");
+  if (uri?.host == 'update' || uri?.path == '/update') {
+    try {
+      await Firebase.initializeApp();
+      await WidgetService.updateWidget();
+    } catch (e) {
+      print("HomeWidget background update failed: $e");
+    }
+  }
 }
 
 // Global ValueNotifier for retro display setting
@@ -100,6 +116,7 @@ class AppTextStyles {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  HomeWidget.registerBackgroundCallback(homeWidgetBackgroundCallback);
 
   // Workmanager mostly needs the callback dispatcher registered, but we can do full init in Splash.
   // However, for background tasks to work reliably even if app is killed,
@@ -1544,20 +1561,17 @@ class _DashboardPageState extends State<DashboardPage>
               );
             }
 
-            if (fromCache && hasCached) {
-              final updated = _formatUpdatedAt(_cachedScheduleUpdatedAt);
-              return Column(
-                children: [
-                  _buildInfoBanner(
-                    title: "Showing saved timetable",
-                    subtitle: updated.isNotEmpty
-                        ? 'Offline • Last updated: $updated'
-                        : 'Offline',
-                    icon: Icons.wifi_off_outlined,
-                  ),
-                  _buildFilteredScheduleList(theme, items),
-                ],
-              );
+            // Only show offline banner if we've been offline for a while (debounce)
+            // Don't show it when just switching days - that's annoying
+            final shouldShowOfflineBanner =
+                fromCache &&
+                hasCached &&
+                !isOnline &&
+                snapshot.connectionState != ConnectionState.waiting;
+
+            if (shouldShowOfflineBanner) {
+              // Only show if we're truly offline, not just loading from cache
+              return _buildFilteredScheduleList(theme, items);
             }
 
             if (snapshot.hasError && !hasCached) {
@@ -1776,36 +1790,29 @@ class _DashboardPageState extends State<DashboardPage>
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            theme.primaryColor.withOpacity(0.1),
-            theme.primaryColor.withOpacity(0.05),
+            theme.primaryColor.withOpacity(0.08),
+            theme.primaryColor.withOpacity(0.03),
           ],
         ),
         border: Border.all(
-          color: theme.primaryColor.withOpacity(0.3),
-          width: 2,
+          color: theme.primaryColor.withOpacity(0.25),
+          width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.primaryColor.withOpacity(0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Card(
         margin: EdgeInsets.zero,
         elevation: 0,
         color: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1814,19 +1821,12 @@ class _DashboardPageState extends State<DashboardPage>
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                      horizontal: 10,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.red,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1853,9 +1853,9 @@ class _DashboardPageState extends State<DashboardPage>
                             'LIVE NOW',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 16, // Much larger
-                              fontWeight: FontWeight.w900, // Much bolder
-                              letterSpacing: 2.0, // Much more spacing
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.0,
                             ),
                           ),
                         ),
@@ -1865,16 +1865,45 @@ class _DashboardPageState extends State<DashboardPage>
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+                      horizontal: 8,
+                      vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      color: theme.primaryColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       "$start - $end",
-                      style: theme.textTheme.labelMedium?.copyWith(
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Subject name with dynamic icon
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      SubjectUtils.getSubjectIcon(data['subject']),
+                      color: theme.primaryColor,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      data['subject'] ?? 'No Subject',
+                      style: theme.textTheme.titleMedium?.copyWith(
                         color: theme.primaryColor,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1882,35 +1911,7 @@ class _DashboardPageState extends State<DashboardPage>
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-
-              // Subject name with dynamic icon
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      SubjectUtils.getSubjectIcon(data['subject']),
-                      color: theme.primaryColor,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      data['subject'] ?? 'No Subject',
-                      style: AppTextStyles.interSubject.copyWith(
-                        color: theme.primaryColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // Progress bar
               Column(
@@ -2010,15 +2011,15 @@ class _DashboardPageState extends State<DashboardPage>
     final end = data['endTime'] ?? '--:--';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: theme.colorScheme.outline.withOpacity(0.2),
+              color: theme.colorScheme.outline.withOpacity(0.15),
               width: 1,
             ),
           ),
@@ -2026,9 +2027,9 @@ class _DashboardPageState extends State<DashboardPage>
             onLongPress: (isAdmin && item.doc != null)
                 ? () => _showEditOptions(item.doc!)
                 : null,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2037,16 +2038,16 @@ class _DashboardPageState extends State<DashboardPage>
                       if (isFirst)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                            horizontal: 6,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: Colors.orange.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             'NEXT',
-                            style: AppTextStyles.interLiveNow.copyWith(
+                            style: theme.textTheme.labelSmall?.copyWith(
                               color: Colors.orange,
                               fontSize: 10,
                             ),
@@ -2055,16 +2056,16 @@ class _DashboardPageState extends State<DashboardPage>
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                          horizontal: 8,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surfaceVariant,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           "$start - $end",
-                          style: theme.textTheme.labelMedium?.copyWith(
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w600,
                           ),
@@ -2072,48 +2073,50 @@ class _DashboardPageState extends State<DashboardPage>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Icon(
                         SubjectUtils.getSubjectIcon(data['subject']),
-                        size: 20,
+                        size: 18,
                         color: theme.primaryColor.withOpacity(0.7),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           data['subject'] ?? 'No Subject',
-                          style: AppTextStyles.interNext,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       Icon(
                         Icons.person_outline,
-                        size: 16,
+                        size: 14,
                         color: theme.hintColor,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         data['mentor'] ?? 'Unknown',
-                        style: AppTextStyles.interSmall.copyWith(
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.hintColor,
                         ),
                       ),
                       const Spacer(),
                       Icon(
                         Icons.location_on_outlined,
-                        size: 16,
+                        size: 14,
                         color: theme.hintColor,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         "Room ${data['room'] ?? 'TBD'}",
-                        style: AppTextStyles.interSmall.copyWith(
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.hintColor,
                         ),
                       ),
@@ -2135,17 +2138,17 @@ class _DashboardPageState extends State<DashboardPage>
     final end = data['endTime'] ?? '--:--';
 
     return Opacity(
-      opacity: 0.6,
+      opacity: 0.5,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: const EdgeInsets.only(bottom: 6),
         child: Card(
           elevation: 0,
           color: theme.colorScheme.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

@@ -53,7 +53,6 @@ class NotificationService {
     for (var data in scheduleData) {
       final dayOfWeek = data['dayOfWeek'] as String;
       final startTimeStr = data['startTime'] as String;
-      final endTimeStr = data['endTime'] as String?;
       final subject = data['subject'] as String;
       final room = data['room'] as String;
 
@@ -79,19 +78,6 @@ class NotificationService {
         minute: minute,
         leadMinutes: minutesBefore,
       );
-
-      // Schedule during-class notification (5 minutes after class starts)
-      if (endTimeStr != null) {
-        await _scheduleWeekly(
-          id: (data['id']?.hashCode ?? data.toString().hashCode) + 10000,
-          title: 'Class in Progress: $subject',
-          body: 'Currently in Room: $room',
-          dayIndex: dayIndex,
-          hour: hour,
-          minute: minute + 5, // 5 minutes after class starts
-          leadMinutes: -5, // Negative means after start
-        );
-      }
     }
   }
 

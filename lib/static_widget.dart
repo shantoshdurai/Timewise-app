@@ -69,14 +69,23 @@ class StaticTimetableWidget extends StatelessWidget {
               ),
             ),
             if (isCurrent && timeRemaining != null)
-              Text(
-                timeRemaining!,
-                style: const TextStyle(
-                  color: Color(0xFF6EE7B7),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    timeRemaining!,
+                    style: const TextStyle(
+                      color: Color(0xFF6EE7B7),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.refresh, color: Colors.white54, size: 12),
+                ],
+              )
+            else
+              const Icon(Icons.refresh, color: Colors.white54, size: 12),
           ],
         ),
         const SizedBox(height: 8),
@@ -206,6 +215,12 @@ class SmallRobotWidget extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+          // Refresh Icon
+          const Positioned(
+            top: 20,
+            right: 20,
+            child: Icon(Icons.refresh, color: Colors.white24, size: 12),
           ),
           // Face Content
           Padding(

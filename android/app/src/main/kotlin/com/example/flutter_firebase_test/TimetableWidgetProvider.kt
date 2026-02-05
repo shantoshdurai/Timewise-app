@@ -23,6 +23,13 @@ class TimetableWidgetProvider : HomeWidgetProvider() {
                         setImageViewBitmap(R.id.widget_image, bitmap)
                     }
                 }
+
+                // Add Refresh Button Click Handling
+                val pendingIntent = es.antonborri.home_widget.HomeWidgetBackgroundIntent.getBroadcast(
+                    context,
+                    android.net.Uri.parse("timewise://update")
+                )
+                setOnClickPendingIntent(R.id.btn_refresh, pendingIntent)
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }

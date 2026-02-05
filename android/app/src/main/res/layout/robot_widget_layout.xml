@@ -12,4 +12,14 @@
         android:scaleType="fitXY"
         android:contentDescription="Robot Widget" />
 
+    <!-- Transparent clickable area for refresh button -->
+    <LinearLayout
+        android:id="@+id/btn_refresh_robot"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="top|right"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackgroundBorderless" />
+
 </FrameLayout>

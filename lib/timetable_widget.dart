@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:flutter_firebase_test/providers/user_selection_provider.dart';
 import 'package:flutter_firebase_test/widgets/skeleton_loader.dart';
+import 'package:flutter_firebase_test/widget_service.dart';
 
 class TimetableWidget extends StatefulWidget {
   const TimetableWidget({super.key});
@@ -12,7 +13,6 @@ class TimetableWidget extends StatefulWidget {
   @override
   State<TimetableWidget> createState() => _TimetableWidgetState();
 }
-
 
 class _TimetableWidgetState extends State<TimetableWidget> {
   Timer? _timer;
@@ -35,24 +35,31 @@ class _TimetableWidgetState extends State<TimetableWidget> {
   Map<String, dynamic>? _getCurrentClass(List<DocumentSnapshot> docs) {
     final now = DateTime.now();
     final currentDay = DateFormat('EEEE').format(now);
-    
+
     for (var doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
       if (data['day'] != currentDay) continue;
-      
+
       final startParts = (data['startTime'] as String).split(':');
       final endParts = (data['endTime'] as String).split(':');
-      
-      final start = DateTime(now.year, now.month, now.day, int.parse(startParts[0]), int.parse(startParts[1]));
-      final end = DateTime(now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1]));
-      
+
+      final start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        int.parse(startParts[0]),
+        int.parse(startParts[1]),
+      );
+      final end = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        int.parse(endParts[0]),
+        int.parse(endParts[1]),
+      );
+
       if (now.isAfter(start) && now.isBefore(end)) {
-        return {
-          'data': data,
-          'start': start,
-          'end': end,
-          'isCurrent': true,
-        };
+        return {'data': data, 'start': start, 'end': end, 'isCurrent': true};
       }
     }
     return null;
@@ -61,17 +68,23 @@ class _TimetableWidgetState extends State<TimetableWidget> {
   Map<String, dynamic>? _getNextClass(List<DocumentSnapshot> docs) {
     final now = DateTime.now();
     final currentDay = DateFormat('EEEE').format(now);
-    
+
     DocumentSnapshot? nextClass;
     DateTime? nextStart;
-    
+
     for (var doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
       if (data['day'] != currentDay) continue;
-      
+
       final startParts = (data['startTime'] as String).split(':');
-      final start = DateTime(now.year, now.month, now.day, int.parse(startParts[0]), int.parse(startParts[1]));
-      
+      final start = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        int.parse(startParts[0]),
+        int.parse(startParts[1]),
+      );
+
       if (start.isAfter(now)) {
         if (nextStart == null || start.isBefore(nextStart)) {
           nextStart = start;
@@ -79,14 +92,20 @@ class _TimetableWidgetState extends State<TimetableWidget> {
         }
       }
     }
-    
+
     if (nextClass != null) {
       final data = nextClass.data() as Map<String, dynamic>;
       final endParts = (data['endTime'] as String).split(':');
       return {
         'data': data,
         'start': nextStart,
-        'end': DateTime(now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1])),
+        'end': DateTime(
+          now.year,
+          now.month,
+          now.day,
+          int.parse(endParts[0]),
+          int.parse(endParts[1]),
+        ),
         'isCurrent': false,
       };
     }
@@ -96,7 +115,7 @@ class _TimetableWidgetState extends State<TimetableWidget> {
   String _getTimeRemaining(DateTime end) {
     final now = DateTime.now();
     final diff = end.difference(now);
-    
+
     if (diff.inHours > 0) {
       return '${diff.inHours}h ${diff.inMinutes % 60}m left';
     } else if (diff.inMinutes > 0) {
@@ -139,14 +158,19 @@ class _TimetableWidgetState extends State<TimetableWidget> {
             }
             if (snapshot.hasError) {
               return Card(
-                  elevation: theme.cardTheme.elevation ?? 1,
-                  color: theme.cardColor,
-                  shape: theme.cardTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  margin: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Center(child: Text("Error: ${snapshot.error}")),
-                  ));
+                elevation: theme.cardTheme.elevation ?? 1,
+                color: theme.cardColor,
+                shape:
+                    theme.cardTheme.shape ??
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                margin: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Center(child: Text("Error: ${snapshot.error}")),
+                ),
+              );
             }
 
             final docs = snapshot.data?.docs ?? [];
@@ -157,18 +181,28 @@ class _TimetableWidgetState extends State<TimetableWidget> {
               return Card(
                 elevation: theme.cardTheme.elevation ?? 1,
                 color: theme.cardColor,
-                shape: theme.cardTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape:
+                    theme.cardTheme.shape ??
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                 margin: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Padding(
                   padding: const EdgeInsets.all(32.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.event_available_outlined, color: theme.hintColor, size: 32),
+                      Icon(
+                        Icons.event_available_outlined,
+                        color: theme.hintColor,
+                        size: 32,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         'No More Classes Today',
-                        style: theme.textTheme.titleMedium?.copyWith(color: theme.hintColor),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.hintColor,
+                        ),
                       ),
                     ],
                   ),
@@ -184,20 +218,47 @@ class _TimetableWidgetState extends State<TimetableWidget> {
               margin: const EdgeInsets.symmetric(horizontal: 16.0),
               elevation: theme.cardTheme.elevation ?? 1,
               color: theme.cardColor,
-              shape: theme.cardTheme.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape:
+                  theme.cardTheme.shape ??
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      isCurrent ? 'NOW' : 'NEXT UP',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: isCurrent ? theme.colorScheme.secondary : theme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          isCurrent ? 'NOW' : 'NEXT UP',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: isCurrent
+                                ? theme.colorScheme.secondary
+                                : theme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.refresh,
+                            size: 18,
+                            color: theme.hintColor,
+                          ),
+                          onPressed: () {
+                            // Trigger a manual update of the home screen widget as well
+                            WidgetService.updateFromForeground();
+                            if (mounted) setState(() {});
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          visualDensity: VisualDensity.compact,
+                          tooltip: "Refresh current status",
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -209,18 +270,30 @@ class _TimetableWidgetState extends State<TimetableWidget> {
                     const SizedBox(height: 12),
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 16, color: theme.hintColor),
+                        Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: theme.hintColor,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           '${data['startTime']} - ${data['endTime']}',
-                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.hintColor,
+                          ),
                         ),
                         const SizedBox(width: 16),
-                        Icon(Icons.location_on_outlined, size: 16, color: theme.hintColor),
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: theme.hintColor,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Room ${data['room']}',
-                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.hintColor,
+                          ),
                         ),
                       ],
                     ),
@@ -231,7 +304,9 @@ class _TimetableWidgetState extends State<TimetableWidget> {
                         child: LinearProgressIndicator(
                           value: _getProgress(display['start'], display['end']),
                           backgroundColor: theme.dividerColor,
-                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.colorScheme.secondary,
+                          ),
                           minHeight: 6,
                         ),
                       ),
@@ -267,8 +342,11 @@ class _TimetableWidgetState extends State<TimetableWidget> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        (next['data'] as Map<String, dynamic>)['subject'] ?? 'Unknown',
-                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                        (next['data'] as Map<String, dynamic>)['subject'] ??
+                            'Unknown',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.hintColor,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

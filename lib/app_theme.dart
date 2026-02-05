@@ -4,19 +4,26 @@ class AppTheme {
   // Private constructor
   AppTheme._();
 
-  // --- Colors ---
-  static const Color _primaryColor = Color(0xFF4A90E2);
-  static const Color _accentColor = Color(0xFF50E3C2);
+  // --- Premium Apple-Inspired Colors ---
+  // Vibrant primary colors with depth
+  static const Color _primaryBlue = Color(0xFF007AFF); // iOS Blue
+  static const Color _accentPurple = Color(0xFF5E5CE6); // iOS Purple
+  static const Color _accentPink = Color(0xFFFF2D55); // iOS Pink
+  static const Color _accentOrange = Color(0xFFFF9500); // iOS Orange
+  static const Color _accentGreen = Color(0xFF34C759); // iOS Green
 
-  // Light Theme Colors
-  static const Color _lightBackground = Color(0xFFF7F9FC);
-  static const Color _lightSurface = Colors.white;
-  static const Color _lightText = Color(0xFF2D3748);
+  // Light Theme Colors - Pristine and Clean
+  static const Color _lightBackground = Color(0xFFF2F2F7); // iOS Light Gray
+  static const Color _lightSurface = Color(0xFFFFFFFF);
+  static const Color _lightText = Color(0xFF000000);
+  static const Color _lightSecondaryText = Color(0xFF8E8E93);
 
-  // Dark Theme Colors
-  static const Color _darkBackground = Color(0xFF1A202C);
-  static const Color _darkSurface = Color(0xFF2D3748);
-  static const Color _darkText = Color(0xFFEDF2F7);
+  // Dark Theme Colors - Deep and Rich
+  static const Color _darkBackground = Color(0xFF000000); // True Black OLED
+  static const Color _darkSurface = Color(0xFF1C1C1E); // iOS Dark Gray
+  static const Color _darkElevated = Color(0xFF2C2C2E); // Elevated surface
+  static const Color _darkText = Color(0xFFFFFFFF);
+  static const Color _darkSecondaryText = Color(0xFF8E8E93);
 
   // --- Text Theme ---
   static const TextTheme _textTheme = TextTheme(
@@ -93,17 +100,17 @@ class AppTheme {
 
   static final ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
-    primaryColor: _primaryColor,
+    primaryColor: _primaryBlue,
     scaffoldBackgroundColor: _lightBackground,
     colorScheme: ColorScheme.light(
-      primary: _primaryColor,
-      secondary: _accentColor,
+      primary: _primaryBlue,
+      secondary: _accentPurple,
       surface: _lightSurface,
       background: _lightBackground,
-      surfaceVariant: Colors.grey[100]!,
-      error: Colors.red,
+      surfaceVariant: const Color(0xFFF2F2F7),
+      error: _accentPink,
       onPrimary: Colors.white,
-      onSecondary: Colors.black,
+      onSecondary: Colors.white,
       onSurface: _lightText,
       onBackground: _lightText,
       onError: Colors.white,
@@ -112,44 +119,63 @@ class AppTheme {
     appBarTheme: AppBarTheme(
       backgroundColor: _lightBackground,
       elevation: 0,
-      iconTheme: const IconThemeData(color: _primaryColor),
-      titleTextStyle: _textTheme.headlineSmall?.copyWith(color: _lightText),
+      iconTheme: const IconThemeData(color: _primaryBlue),
+      titleTextStyle: _textTheme.headlineSmall?.copyWith(
+        color: _lightText,
+        fontWeight: FontWeight.bold,
+      ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: _primaryColor,
+        backgroundColor: _primaryBlue,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 0,
+        shadowColor: _primaryBlue.withOpacity(0.3),
         textStyle: _textTheme.labelLarge,
       ),
     ),
+    cardTheme: const CardThemeData(
+      color: _lightSurface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: _lightSurface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: _lightSecondaryText.withOpacity(0.2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: _lightSecondaryText.withOpacity(0.2)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _primaryColor, width: 2),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: _primaryBlue, width: 2),
       ),
       labelStyle: _textTheme.bodyMedium,
+      hintStyle: TextStyle(color: _lightSecondaryText),
     ),
   );
 
   static final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
-    primaryColor: _primaryColor,
+    primaryColor: _primaryBlue,
     scaffoldBackgroundColor: _darkBackground,
     colorScheme: ColorScheme.dark(
-      primary: _primaryColor,
-      secondary: _accentColor,
+      primary: _primaryBlue,
+      secondary: _accentPurple,
       surface: _darkSurface,
       background: _darkBackground,
-      surfaceVariant: const Color(0xFF2D3748),
-      error: Colors.redAccent,
+      surfaceVariant: _darkElevated,
+      error: _accentPink,
       onPrimary: Colors.white,
-      onSecondary: Colors.black,
+      onSecondary: Colors.white,
       onSurface: _darkText,
       onBackground: _darkText,
       onError: Colors.white,
@@ -158,29 +184,54 @@ class AppTheme {
     appBarTheme: AppBarTheme(
       backgroundColor: _darkBackground,
       elevation: 0,
-      iconTheme: const IconThemeData(color: _primaryColor),
-      titleTextStyle: _textTheme.headlineSmall?.copyWith(color: _darkText),
+      iconTheme: const IconThemeData(color: _primaryBlue),
+      titleTextStyle: _textTheme.headlineSmall?.copyWith(
+        color: _darkText,
+        fontWeight: FontWeight.bold,
+      ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: _primaryColor,
+        backgroundColor: _primaryBlue,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 0,
+        shadowColor: _primaryBlue.withOpacity(0.4),
         textStyle: _textTheme.labelLarge,
       ),
     ),
+    cardTheme: const CardThemeData(
+      color: _darkSurface,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: _darkSurface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey[600]!),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: _darkSecondaryText.withOpacity(0.2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: _darkSecondaryText.withOpacity(0.2)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _primaryColor, width: 2),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: _primaryBlue, width: 2),
       ),
       labelStyle: _textTheme.bodyMedium?.copyWith(color: _darkText),
-      hintStyle: _textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
+      hintStyle: TextStyle(color: _darkSecondaryText),
     ),
   );
+
+  // MARK: - Premium Color Getters (for use in widgets)
+  static Color get accentOrange => _accentOrange;
+  static Color get accentGreen => _accentGreen;
+  static Color get primaryBlue => _primaryBlue;
+  static Color get accentPurple => _accentPurple;
+  static Color get accentPink => _accentPink;
 }
