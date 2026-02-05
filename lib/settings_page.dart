@@ -9,6 +9,7 @@ import 'package:flutter_firebase_test/theme_provider.dart';
 import 'package:flutter_firebase_test/notification_settings_page.dart';
 import 'package:flutter_firebase_test/widgets/glass_widgets.dart';
 import 'package:flutter_firebase_test/app_theme.dart';
+import 'package:image_picker/image_picker.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -21,6 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _notificationsEnabled = true;
   bool _widgetsEnabled = true;
   bool _retroDisplayEnabled = true;
+  bool _showAdvancedSettings = false; // NEW: For collapsible section
 
   @override
   void initState() {
@@ -62,6 +64,45 @@ class _SettingsPageState extends State<SettingsPage> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  Future<void> _pickBackgroundImage() async {
+    final picker = ImagePicker();
+    try {
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null && mounted) {
+        final themeProvider = Provider.of<ThemeProvider>(
+          context,
+          listen: false,
+        );
+        await themeProvider.setCustomBackground(pickedFile.path);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Custom background applied!')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
+      }
+    }
+  }
+
+  Future<void> _clearBackgroundImage() async {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    await themeProvider.clearCustomBackground();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Background reset to default')),
+      );
+    }
   }
 
   @override
@@ -163,39 +204,10 @@ class _SettingsPageState extends State<SettingsPage> {
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
               children: [
+                // 🎯 PRIORITY 1: Academic - Primary Purpose
                 _buildSettingsGroup(
                   context,
-                  title: 'Display',
-                  children: [
-                    SwitchListTile(
-                      title: Text(
-                        'Dark Mode',
-                        style: AppTextStyles.interMentor.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'A comfortable view for nighttime',
-                        style: AppTextStyles.interSmall.copyWith(
-                          color: theme.hintColor,
-                        ),
-                      ),
-                      value: themeProvider.themeMode == ThemeMode.dark,
-                      onChanged: (value) {
-                        themeProvider.toggleTheme(value);
-                      },
-                      activeColor: theme.colorScheme.primary,
-                      secondary: Icon(
-                        Icons.brightness_6_outlined,
-                        color: theme.primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildSettingsGroup(
-                  context,
-                  title: 'Account',
+                  title: 'Academic',
                   children: [
                     ListTile(
                       leading: Icon(
@@ -203,13 +215,13 @@ class _SettingsPageState extends State<SettingsPage> {
                         color: theme.primaryColor,
                       ),
                       title: Text(
-                        'Change My Class',
+                        'My Class',
                         style: AppTextStyles.interMentor.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       subtitle: Text(
-                        'Select a different section or year',
+                        'Change section or year',
                         style: AppTextStyles.interSmall.copyWith(
                           color: theme.hintColor,
                         ),
@@ -229,26 +241,326 @@ class _SettingsPageState extends State<SettingsPage> {
                         );
                       },
                     ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                _buildSettingsGroup(
-                  context,
-                  title: 'Notifications',
-                  children: [
+                    const Divider(
+                      height: 1,
+                      indent: 56,
+                      endIndent: 16,
+                      color: Colors.white10,
+                    ),
                     ListTile(
                       leading: Icon(
                         Icons.notifications_outlined,
                         color: theme.primaryColor,
                       ),
                       title: Text(
-                        'Manage Alerts',
+                        'Class Alerts',
                         style: AppTextStyles.interMentor.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       subtitle: Text(
-                        'Select classes and test notifications',
+                        'Manage notification preferences',
+                        style: AppTextStyles.interSmall.copyWith(
+                          color: theme.hintColor,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: theme.hintColor,
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationSettingsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                // 🎨 PRIORITY 2: Appearance - Basic Visual Settings
+                _buildSettingsGroup(
+                  context,
+                  title: 'Appearance',
+                  children: [
+                    SwitchListTile(
+                      title: Text(
+                        'Dark Mode',
+                        style: AppTextStyles.interMentor.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Comfortable viewing for nighttime',
+                        style: AppTextStyles.interSmall.copyWith(
+                          color: theme.hintColor,
+                        ),
+                      ),
+                      value: themeProvider.themeMode == ThemeMode.dark,
+                      onChanged: (value) {
+                        themeProvider.toggleTheme(value);
+                      },
+                      activeColor: theme.colorScheme.primary,
+                      secondary: Icon(
+                        Icons.brightness_6_outlined,
+                        color: theme.primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                // ⚙️ PRIORITY 3: Advanced - Detailed Customization
+                _buildSettingsGroup(
+                  context,
+                  title: 'Advanced',
+                  children: [
+                    ListTile(
+                      leading: Icon(
+                        Icons.image_outlined,
+                        color: theme.primaryColor,
+                      ),
+                      title: Text(
+                        'Custom Background',
+                        style: AppTextStyles.interMentor.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        themeProvider.customBackgroundPath != null
+                            ? 'Tap to change image'
+                            : 'Personalize your dashboard',
+                        style: AppTextStyles.interSmall.copyWith(
+                          color: theme.hintColor,
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (themeProvider.customBackgroundPath != null)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.redAccent,
+                                size: 20,
+                              ),
+                              onPressed: _clearBackgroundImage,
+                              tooltip: 'Reset to default',
+                            ),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: theme.hintColor,
+                          ),
+                        ],
+                      ),
+                      onTap: _pickBackgroundImage,
+                    ),
+                    const Divider(
+                      height: 1,
+                      indent: 56,
+                      endIndent: 16,
+                      color: Colors.white10,
+                    ),
+                    // UI Glass Blur Control
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.blur_on,
+                                  color: theme.primaryColor,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'UI Glass Blur',
+                                        style: AppTextStyles.interMentor
+                                            .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                      Text(
+                                        'Control the frostiness of cards and UI elements',
+                                        style: AppTextStyles.interSmall
+                                            .copyWith(color: theme.hintColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: theme.primaryColor,
+                              inactiveTrackColor: theme.primaryColor
+                                  .withOpacity(0.2),
+                              thumbColor: Colors.white,
+                              overlayColor: theme.primaryColor.withOpacity(0.2),
+                              trackHeight: 4.0,
+                            ),
+                            child: Slider(
+                              value: themeProvider.glassBlur,
+                              min: 0.0,
+                              max: 50.0,
+                              divisions: 50,
+                              label: themeProvider.glassBlur.round().toString(),
+                              onChanged: (value) {
+                                themeProvider.setGlassBlur(value);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(
+                      height: 1,
+                      indent: 56,
+                      endIndent: 16,
+                      color: Colors.white10,
+                    ),
+                    // Background Blur Control
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.blur_circular,
+                                  color: theme.primaryColor,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Background Blur',
+                                        style: AppTextStyles.interMentor
+                                            .copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                      ),
+                                      Text(
+                                        'Blur the background image for better readability',
+                                        style: AppTextStyles.interSmall
+                                            .copyWith(color: theme.hintColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: theme.primaryColor,
+                              inactiveTrackColor: theme.primaryColor
+                                  .withOpacity(0.2),
+                              thumbColor: Colors.white,
+                              overlayColor: theme.primaryColor.withOpacity(0.2),
+                              trackHeight: 4.0,
+                            ),
+                            child: Slider(
+                              value: themeProvider.backgroundBlur,
+                              min: 0.0,
+                              max: 20.0,
+                              divisions: 40,
+                              label: themeProvider.backgroundBlur
+                                  .toStringAsFixed(1),
+                              onChanged: (value) {
+                                themeProvider.setBackgroundBlur(value);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                _buildSettingsGroup(
+                  context,
+                  title: 'Academic',
+                  children: [
+                    ListTile(
+                      leading: Icon(
+                        Icons.school_outlined,
+                        color: theme.primaryColor,
+                      ),
+                      title: Text(
+                        'My Class',
+                        style: AppTextStyles.interMentor.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Change section or year',
+                        style: AppTextStyles.interSmall.copyWith(
+                          color: theme.hintColor,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: theme.hintColor,
+                      ),
+                      onTap: () {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const OnboardingScreen(),
+                          ),
+                          (route) => false,
+                        );
+                      },
+                    ),
+                    const Divider(
+                      height: 1,
+                      indent: 56,
+                      endIndent: 16,
+                      color: Colors.white10,
+                    ),
+                    ListTile(
+                      leading: Icon(
+                        Icons.notifications_outlined,
+                        color: theme.primaryColor,
+                      ),
+                      title: Text(
+                        'Class Alerts',
+                        style: AppTextStyles.interMentor.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Manage notification preferences',
                         style: AppTextStyles.interSmall.copyWith(
                           color: theme.hintColor,
                         ),
@@ -270,90 +582,156 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                _buildSettingsGroup(
-                  context,
-                  title: 'Extras',
-                  children: [
-                    SwitchListTile(
-                      title: Text(
-                        '90s Retro Display',
-                        style: AppTextStyles.interMentor.copyWith(
-                          fontWeight: FontWeight.bold,
+                const SizedBox(height: 32),
+
+                // ADVANCED SETTINGS - Collapsible
+                GlassCard(
+                  padding: EdgeInsets.zero,
+                  opacity: 0.05,
+                  borderRadius: BorderRadius.circular(24),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: Icon(
+                          _showAdvancedSettings
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          color: theme.primaryColor,
+                        ),
+                        title: Text(
+                          'Advanced Features',
+                          style: AppTextStyles.interMentor.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.primaryColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          _showAdvancedSettings
+                              ? 'Hide additional options'
+                              : 'Show widgets, retro display, etc.',
+                          style: AppTextStyles.interSmall.copyWith(
+                            color: theme.hintColor,
+                          ),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _showAdvancedSettings = !_showAdvancedSettings;
+                          });
+                        },
+                      ),
+                      if (_showAdvancedSettings) ...[
+                        const Divider(
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: Colors.white10,
+                        ),
+                        SwitchListTile(
+                          title: Text(
+                            'Home Screen Widgets',
+                            style: AppTextStyles.interMentor.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Auto-update timetable widget',
+                            style: AppTextStyles.interSmall.copyWith(
+                              color: theme.hintColor,
+                            ),
+                          ),
+                          value: _widgetsEnabled,
+                          onChanged: _setWidgetsEnabled,
+                          activeColor: theme.colorScheme.primary,
+                          secondary: Icon(
+                            Icons.widgets_outlined,
+                            color: theme.primaryColor,
+                          ),
+                        ),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          endIndent: 16,
+                          color: Colors.white10,
+                        ),
+                        SwitchListTile(
+                          title: Text(
+                            '90s Retro Display',
+                            style: AppTextStyles.interMentor.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Pixel-style class tracker',
+                            style: AppTextStyles.interSmall.copyWith(
+                              color: theme.hintColor,
+                            ),
+                          ),
+                          value: _retroDisplayEnabled,
+                          onChanged: _setRetroDisplayEnabled,
+                          activeColor: theme.colorScheme.primary,
+                          secondary: Icon(
+                            Icons.computer_outlined,
+                            color: theme.primaryColor,
+                          ),
+                        ),
+                        const Divider(
+                          height: 1,
+                          indent: 56,
+                          endIndent: 16,
+                          color: Colors.white10,
+                        ),
+                        ListTile(
+                          leading: Icon(
+                            Icons.info_outline_rounded,
+                            color: theme.primaryColor,
+                          ),
+                          title: Text(
+                            'Widget Setup Guide',
+                            style: AppTextStyles.interMentor.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Text(
+                            'Learn how to add widgets',
+                            style: AppTextStyles.interSmall.copyWith(
+                              color: theme.hintColor,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: theme.hintColor,
+                          ),
+                          onTap: () => _showWidgetInfoDialog(context),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+                // App Info Footer
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        'Class Now',
+                        style: AppTextStyles.interTitle.copyWith(
+                          color: theme.hintColor.withOpacity(0.5),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      subtitle: Text(
-                        'Show pixel-style class tracker display',
+                      const SizedBox(height: 4),
+                      Text(
+                        'DSU Timetable Management System',
                         style: AppTextStyles.interSmall.copyWith(
-                          color: theme.hintColor,
+                          color: theme.hintColor.withOpacity(0.4),
+                          fontSize: 11,
                         ),
                       ),
-                      value: _retroDisplayEnabled,
-                      onChanged: _setRetroDisplayEnabled,
-                      activeColor: theme.colorScheme.primary,
-                      secondary: Icon(
-                        Icons.computer_outlined,
-                        color: theme.primaryColor,
-                      ),
-                    ),
-                    const Divider(
-                      height: 1,
-                      indent: 56,
-                      endIndent: 16,
-                      color: Colors.white10,
-                    ),
-                    SwitchListTile(
-                      title: Text(
-                        'Widgets Auto-Update',
-                        style: AppTextStyles.interMentor.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Keep home screen widgets updated automatically',
-                        style: AppTextStyles.interSmall.copyWith(
-                          color: theme.hintColor,
-                        ),
-                      ),
-                      value: _widgetsEnabled,
-                      onChanged: _setWidgetsEnabled,
-                      activeColor: theme.colorScheme.primary,
-                      secondary: Icon(
-                        Icons.autorenew_rounded,
-                        color: theme.primaryColor,
-                      ),
-                    ),
-                    const Divider(
-                      height: 1,
-                      indent: 56,
-                      endIndent: 16,
-                      color: Colors.white10,
-                    ),
-                    ListTile(
-                      leading: Icon(
-                        Icons.widgets_outlined,
-                        color: theme.primaryColor,
-                      ),
-                      title: Text(
-                        'Home Screen Widgets',
-                        style: AppTextStyles.interMentor.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Learn how to add widgets',
-                        style: AppTextStyles.interSmall.copyWith(
-                          color: theme.hintColor,
-                        ),
-                      ),
-                      trailing: Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 14,
-                        color: theme.hintColor,
-                      ),
-                      onTap: () => _showWidgetInfoDialog(context),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

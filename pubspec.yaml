@@ -50,6 +50,7 @@ dependencies:
   workmanager: ^0.9.0+3
   android_alarm_manager_plus: ^4.0.0
   flutter_animate: ^4.5.2
+  image_picker: ^1.0.7
 
 dev_dependencies:
   flutter_test:

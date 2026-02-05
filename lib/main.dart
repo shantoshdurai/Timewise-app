@@ -1,4 +1,5 @@
 import 'dart:ui'; // Add for Blur
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -1201,8 +1202,8 @@ class _DashboardPageState extends State<DashboardPage>
         child: Container(
           margin: const EdgeInsets.fromLTRB(16, 45, 16, 0),
           child: GlassCard(
-            blur: 25,
-            opacity: 0.1,
+            blur: 40,
+            opacity: 0.25,
             borderRadius: BorderRadius.circular(20),
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: SizedBox(
@@ -1289,38 +1290,84 @@ class _DashboardPageState extends State<DashboardPage>
       ),
       body: Stack(
         children: [
-          if (theme.brightness == Brightness.dark)
-            Positioned(
-              top: -100,
-              right: -50,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.primaryBlue.withOpacity(0.15),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
+          // Background Layer
+          Positioned.fill(
+            child: Consumer<ThemeProvider>(
+              builder: (context, themeProvider, child) {
+                final customPath = themeProvider.customBackgroundPath;
+                if (customPath != null && File(customPath).existsSync()) {
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Apply blur to background image
+                      ImageFiltered(
+                        imageFilter: ImageFilter.blur(
+                          sigmaX: themeProvider.backgroundBlur,
+                          sigmaY: themeProvider.backgroundBlur,
+                          tileMode: TileMode.decal,
+                        ),
+                        child: Image.file(File(customPath), fit: BoxFit.cover),
+                      ),
+                    ],
+                  );
+                }
+                return Container(
+                  color: isDark
+                      ? const Color(0xFF000000)
+                      : const Color(0xFFF2F2F7),
+                );
+              },
             ),
-          Positioned(
-            bottom: -50,
-            left: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.accentPurple.withOpacity(0.15),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
+          ),
+
+          // Decorative blur circles - ONLY show when NO custom background
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              final hasCustomBg =
+                  themeProvider.customBackgroundPath != null &&
+                  File(themeProvider.customBackgroundPath!).existsSync();
+
+              // Don't show decorative blurs if custom background is active
+              if (hasCustomBg) return const SizedBox.shrink();
+
+              return Stack(
+                children: [
+                  if (isDark)
+                    Positioned(
+                      top: -100,
+                      right: -50,
+                      child: Container(
+                        width: 300,
+                        height: 300,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppTheme.primaryBlue.withOpacity(0.15),
+                        ),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+                          child: Container(color: Colors.transparent),
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    bottom: -50,
+                    left: -50,
+                    child: Container(
+                      width: 250,
+                      height: 250,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.accentPurple.withOpacity(0.15),
+                      ),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 70, sigmaY: 70),
+                        child: Container(color: Colors.transparent),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
 
           // Main Content
@@ -1381,60 +1428,64 @@ class _DashboardPageState extends State<DashboardPage>
       ),
       floatingActionButton: Container(
         margin: const EdgeInsets.only(bottom: 20),
-        child: GlassCard(
-          blur: 15,
-          opacity: 0.15,
-          borderRadius: BorderRadius.circular(30),
-          padding: EdgeInsets.zero,
-          child: FloatingActionButton(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AnnouncementsPage(isAdmin: isAdmin),
-              ),
-            ),
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('announcements')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                final hasNew =
-                    snapshot.hasData && snapshot.data!.docs.isNotEmpty;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      Icons.campaign_rounded,
-                      color: theme.primaryColor,
-                      size: 28,
-                    ),
-                    if (hasNew)
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: GlowingCard(
-                          glowColor: theme.colorScheme.error,
-                          glowRadius: 4,
-                          padding: const EdgeInsets.all(4),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Text(
-                            '${snapshot.data!.docs.length}',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
+        child: Consumer<ThemeProvider>(
+          builder: (context, themeProvider, child) {
+            return GlassCard(
+              blur: themeProvider.glassBlur,
+              opacity: 0.25,
+              borderRadius: BorderRadius.circular(30),
+              padding: EdgeInsets.zero,
+              child: FloatingActionButton(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AnnouncementsPage(isAdmin: isAdmin),
+                  ),
+                ),
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('announcements')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    final hasNew =
+                        snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.campaign_rounded,
+                          color: theme.primaryColor,
+                          size: 28,
+                        ),
+                        if (hasNew)
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: GlowingCard(
+                              glowColor: theme.colorScheme.error,
+                              glowRadius: 4,
+                              padding: const EdgeInsets.all(4),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Text(
+                                '${snapshot.data!.docs.length}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -1442,12 +1493,15 @@ class _DashboardPageState extends State<DashboardPage>
 
   Widget _buildDaySelector() {
     final theme = Theme.of(context);
+    final themeProvider = Provider.of<ThemeProvider>(
+      context,
+    ); // Access provider
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       height: 54,
       child: GlassCard(
-        blur: 15,
-        opacity: 0.08,
+        blur: themeProvider.glassBlur, // Dynamic blur
+        opacity: 0.3,
         borderRadius: BorderRadius.circular(20),
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: ListView.builder(
@@ -1803,185 +1857,194 @@ class _DashboardPageState extends State<DashboardPage>
       progress = 0.0;
     }
 
-    return GlassCard(
-      margin: const EdgeInsets.only(bottom: 16),
-      blur: 20,
-      opacity: 0.12,
-      borderRadius: BorderRadius.circular(24),
-      padding: EdgeInsets.zero,
-      border: Border.all(
-        color: theme.primaryColor.withOpacity(0.3),
-        width: 1.5,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Shimmering header for current class
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  theme.primaryColor.withOpacity(0.15),
-                  theme.primaryColor.withOpacity(0.05),
-                ],
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.red.withOpacity(0.5),
-                            blurRadius: 4,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                    )
-                    .animate(
-                      onPlay: (controller) => controller.repeat(reverse: true),
-                    )
-                    .scale(
-                      begin: const Offset(1, 1),
-                      end: const Offset(1.3, 1.3),
-                      duration: const Duration(seconds: 1),
-                    ),
-                const SizedBox(width: 8),
-                Text(
-                  'LIVE NOW',
-                  style: AppTextStyles.interLiveNow.copyWith(
-                    color: Colors.red,
-                    fontSize: 11,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  "$start - $end",
-                  style: AppTextStyles.interProgress.copyWith(
-                    color: isDark
-                        ? Colors.white70
-                        : theme.colorScheme.onSurface.withOpacity(0.7),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return GlassCard(
+          margin: const EdgeInsets.only(bottom: 16),
+          blur:
+              themeProvider.glassBlur + 10, // Slightly more blur for live card
+          opacity: 0.35,
+          borderRadius: BorderRadius.circular(24),
+          padding: EdgeInsets.zero,
+          border: Border.all(
+            color: theme.primaryColor.withOpacity(0.3),
+            width: 1.5,
           ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Shimmering header for current class
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.primaryColor.withOpacity(0.15),
+                      theme.primaryColor.withOpacity(0.05),
+                    ],
+                  ),
+                ),
+                child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: theme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        SubjectUtils.getSubjectIcon(data['subject']),
-                        color: theme.primaryColor,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            data['subject'] ?? 'No Subject',
-                            style: AppTextStyles.interSubject.copyWith(
-                              color: theme.colorScheme.onSurface,
-                            ),
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.withOpacity(0.5),
+                                blurRadius: 4,
+                                spreadRadius: 2,
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            data['mentor'] ?? 'Unknown Mentor',
-                            style: AppTextStyles.interMentor.copyWith(
-                              color: isDark
-                                  ? Colors.white60
-                                  : theme.colorScheme.onSurface.withOpacity(
-                                      0.6,
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                        )
+                        .animate(
+                          onPlay: (controller) =>
+                              controller.repeat(reverse: true),
+                        )
+                        .scale(
+                          begin: const Offset(1, 1),
+                          end: const Offset(1.3, 1.3),
+                          duration: const Duration(seconds: 1),
+                        ),
+                    const SizedBox(width: 8),
                     Text(
-                      'Session Progress',
+                      'LIVE NOW',
+                      style: AppTextStyles.interLiveNow.copyWith(
+                        color: Colors.red,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      "$start - $end",
                       style: AppTextStyles.interProgress.copyWith(
                         color: isDark
                             ? Colors.white70
                             : theme.colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                    ),
-                    Text(
-                      '${(progress * 100).toInt()}%',
-                      style: AppTextStyles.interProgress.copyWith(
-                        color: theme.primaryColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: theme.primaryColor.withOpacity(0.1),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.primaryColor,
-                    ),
-                    minHeight: 6,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.location_on_rounded,
-                      size: 16,
-                      color: theme.primaryColor,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            SubjectUtils.getSubjectIcon(data['subject']),
+                            color: theme.primaryColor,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                data['subject'] ?? 'No Subject',
+                                style: AppTextStyles.interSubject.copyWith(
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                data['mentor'] ?? 'Unknown Mentor',
+                                style: AppTextStyles.interMentor.copyWith(
+                                  color: isDark
+                                      ? Colors.white60
+                                      : theme.colorScheme.onSurface.withOpacity(
+                                          0.6,
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      "Room ${data['room'] ?? 'TBD'}",
-                      style: AppTextStyles.interSmall.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Session Progress',
+                          style: AppTextStyles.interProgress.copyWith(
+                            color: isDark
+                                ? Colors.white70
+                                : theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                        ),
+                        Text(
+                          '${(progress * 100).toInt()}%',
+                          style: AppTextStyles.interProgress.copyWith(
+                            color: theme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: theme.primaryColor.withOpacity(0.1),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          theme.primaryColor,
+                        ),
+                        minHeight: 6,
                       ),
                     ),
-                    const Spacer(),
-                    if (isAdmin)
-                      IconButton(
-                        icon: const Icon(Icons.edit_note_rounded),
-                        onPressed: () => _showEditOptions(item.doc!),
-                        color: theme.primaryColor,
-                      ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_rounded,
+                          size: 16,
+                          color: theme.primaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "Room ${data['room'] ?? 'TBD'}",
+                          style: AppTextStyles.interSmall.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (isAdmin)
+                          IconButton(
+                            icon: const Icon(Icons.edit_note_rounded),
+                            onPressed: () => _showEditOptions(item.doc!),
+                            color: theme.primaryColor,
+                          ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1992,124 +2055,128 @@ class _DashboardPageState extends State<DashboardPage>
     final start = data['startTime'] ?? '--:--';
     final end = data['endTime'] ?? '--:--';
 
-    return GlassCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      blur: 10,
-      opacity: 0.05,
-      borderRadius: BorderRadius.circular(18),
-      padding: EdgeInsets.zero,
-      child: InkWell(
-        onLongPress: (isAdmin && item.doc != null)
-            ? () => _showEditOptions(item.doc!)
-            : null,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return GlassCard(
+          margin: const EdgeInsets.only(bottom: 12),
+          blur: themeProvider.glassBlur,
+          opacity: 0.25,
+          borderRadius: BorderRadius.circular(18),
+          padding: EdgeInsets.zero,
+          child: InkWell(
+            onLongPress: (isAdmin && item.doc != null)
+                ? () => _showEditOptions(item.doc!)
+                : null,
+            borderRadius: BorderRadius.circular(18),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (isFirst)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'UP NEXT',
-                        style: AppTextStyles.interLiveNow.copyWith(
-                          color: theme.primaryColor,
-                          fontSize: 10,
+                  Row(
+                    children: [
+                      if (isFirst)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'UP NEXT',
+                            style: AppTextStyles.interLiveNow.copyWith(
+                              color: theme.primaryColor,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      const Spacer(),
+                      Text(
+                        "$start - $end",
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: isDark
+                              ? Colors.white70
+                              : theme.colorScheme.onSurface.withOpacity(0.7),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                  const Spacer(),
-                  Text(
-                    "$start - $end",
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: isDark
-                          ? Colors.white70
-                          : theme.colorScheme.onSurface.withOpacity(0.7),
-                      fontWeight: FontWeight.w600,
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    SubjectUtils.getSubjectIcon(data['subject']),
-                    size: 20,
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      data['subject'] ?? 'No Subject',
-                      style: AppTextStyles.interNext.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontSize: 18,
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        SubjectUtils.getSubjectIcon(data['subject']),
+                        size: 20,
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          data['subject'] ?? 'No Subject',
+                          style: AppTextStyles.interNext.copyWith(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                      if (isAdmin)
+                        IconButton(
+                          icon: const Icon(Icons.edit_note_rounded),
+                          onPressed: () => _showEditOptions(item.doc!),
+                          color: theme.primaryColor,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                    ],
                   ),
-                  if (isAdmin)
-                    IconButton(
-                      icon: const Icon(Icons.edit_note_rounded),
-                      onPressed: () => _showEditOptions(item.doc!),
-                      color: theme.primaryColor,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline_rounded,
+                        size: 14,
+                        color: isDark
+                            ? Colors.white60
+                            : theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        data['mentor'] ?? 'Unknown',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isDark
+                              ? Colors.white60
+                              : theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
+                        color: isDark
+                            ? Colors.white60
+                            : theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Room ${data['room'] ?? 'TBD'}",
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isDark
+                              ? Colors.white60
+                              : theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.person_outline_rounded,
-                    size: 14,
-                    color: isDark
-                        ? Colors.white60
-                        : theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    data['mentor'] ?? 'Unknown',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isDark
-                          ? Colors.white60
-                          : theme.colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                  const Spacer(),
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 14,
-                    color: isDark
-                        ? Colors.white60
-                        : theme.colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    "Room ${data['room'] ?? 'TBD'}",
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isDark
-                          ? Colors.white60
-                          : theme.colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -2122,74 +2189,82 @@ class _DashboardPageState extends State<DashboardPage>
 
     final Color mutedColor = isDark ? Colors.white24 : Colors.black26;
 
-    return GlassCard(
-      margin: const EdgeInsets.only(bottom: 8),
-      blur: 5,
-      opacity: 0.02,
-      borderRadius: BorderRadius.circular(12),
-      padding: EdgeInsets.zero,
-      child: InkWell(
-        onLongPress: (isAdmin && item.doc != null)
-            ? () => _showEditOptions(item.doc!)
-            : null,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return GlassCard(
+          margin: const EdgeInsets.only(bottom: 8),
+          blur: themeProvider.glassBlur * 0.75,
+          opacity: 0.15,
+          borderRadius: BorderRadius.circular(12),
+          padding: EdgeInsets.zero,
+          child: InkWell(
+            onLongPress: (isAdmin && item.doc != null)
+                ? () => _showEditOptions(item.doc!)
+                : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'FINISHED',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: mutedColor,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 9,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    "$start - $end",
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: mutedColor,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.check_circle_rounded, size: 16, color: mutedColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      data['subject'] ?? 'No Subject',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        decoration: TextDecoration.lineThrough,
-                        decorationColor: mutedColor.withOpacity(0.5),
-                        decorationThickness: 2,
-                        color: mutedColor,
-                        fontWeight: FontWeight.w500,
+                  Row(
+                    children: [
+                      Text(
+                        'FINISHED',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: mutedColor,
+                          letterSpacing: 1.5,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 9,
+                        ),
                       ),
-                    ),
+                      const Spacer(),
+                      Text(
+                        "$start - $end",
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: mutedColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
-                  if (isAdmin)
-                    IconButton(
-                      icon: const Icon(Icons.edit_note_rounded),
-                      onPressed: () => _showEditOptions(item.doc!),
-                      color: theme.primaryColor.withOpacity(0.5),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 16,
+                        color: mutedColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          data['subject'] ?? 'No Subject',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            decoration: TextDecoration.lineThrough,
+                            decorationColor: mutedColor.withOpacity(0.5),
+                            decorationThickness: 2,
+                            color: mutedColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (isAdmin)
+                        IconButton(
+                          icon: const Icon(Icons.edit_note_rounded),
+                          onPressed: () => _showEditOptions(item.doc!),
+                          color: theme.primaryColor.withOpacity(0.5),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

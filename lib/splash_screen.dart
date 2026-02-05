@@ -53,35 +53,33 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
-    // Reduced delay for faster startup
-    final minDelay = Future.delayed(const Duration(milliseconds: 800));
+    // Minimal delay - just enough for animation to show
+    final minDelay = Future.delayed(const Duration(milliseconds: 400));
 
     try {
-      // 1. Initialize Firebase core
+      // 1. Initialize Firebase core FIRST (required for everything else)
       await Firebase.initializeApp();
 
-      // 2. Setup Firestore settings
+      // 2. Setup Firestore settings immediately
       FirebaseFirestore.instance.settings = const Settings(
         persistenceEnabled: true,
       );
 
-      // 3. Initialize services in parallel
+      // 3. Run remaining init tasks in parallel (these don't block each other)
       await Future.wait([
-        NotificationService.init(),
-        _initWorkmanager(),
-        WidgetService.initialize(),
+        _initNotifications(),
+        _initWidgetService(),
+        _initAuth(),
       ]);
 
-      // 4. Authenticate
-      if (FirebaseAuth.instance.currentUser == null) {
-        await FirebaseAuth.instance.signInAnonymously();
-      }
+      // 4. Defer Workmanager to after splash (non-critical)
+      _deferredWorkmanagerInit();
     } catch (e) {
       print('Error during initialization: $e');
-      // Continue anyway, app might still work in offline mode or show error later
+      // Continue anyway - app might work in offline mode
     }
 
-    // Wait for the minimum delay
+    // Wait for minimum animation time
     await minDelay;
 
     if (mounted) {
@@ -92,18 +90,50 @@ class _SplashScreenState extends State<SplashScreen>
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 300),
+          transitionDuration: const Duration(milliseconds: 200),
         ),
       );
     }
   }
 
-  Future<void> _initWorkmanager() async {
+  Future<void> _initNotifications() async {
     try {
-      await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+      await NotificationService.init();
     } catch (e) {
-      print('Workmanager init failed: $e');
+      print('Notification init failed: $e');
     }
+  }
+
+  Future<void> _initWidgetService() async {
+    try {
+      await WidgetService.initialize();
+    } catch (e) {
+      print('Widget service init failed: $e');
+    }
+  }
+
+  Future<void> _initAuth() async {
+    try {
+      if (FirebaseAuth.instance.currentUser == null) {
+        await FirebaseAuth.instance.signInAnonymously();
+      }
+    } catch (e) {
+      print('Auth init failed: $e');
+    }
+  }
+
+  void _deferredWorkmanagerInit() {
+    // Initialize Workmanager after app is running (non-blocking)
+    Future.microtask(() async {
+      try {
+        await Workmanager().initialize(
+          callbackDispatcher,
+          isInDebugMode: false,
+        );
+      } catch (e) {
+        print('Workmanager init failed: $e');
+      }
+    });
   }
 
   @override
