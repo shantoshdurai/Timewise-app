@@ -37,24 +37,53 @@ class StaticTimetableWidget extends StatelessWidget {
   }
 
   Widget _buildContent() {
-    if (currentClass == null && nextClass == null) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.event_available, color: Colors.white54, size: 32),
-            SizedBox(height: 8),
-            Text(
-              'No classes scheduled',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final displayData = currentClass ?? nextClass!;
+    final displayData = currentClass ?? nextClass;
     final isCurrent = currentClass != null;
+
+    return Stack(
+      children: [
+        // Subtle Refresh Icon (Top Right)
+        Positioned(
+          top: 0,
+          right: 0,
+          child: Transform.rotate(
+            angle: refreshAngle,
+            child: Icon(
+              Icons.refresh,
+              color: Colors.white.withOpacity(0.3),
+              size: 40,
+            ),
+          ),
+        ),
+        // Central Content
+        Center(
+          child: currentClass == null && nextClass == null
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      color: Colors.white24,
+                      size: 100, // Large for high-res
+                    ),
+                    const SizedBox(height: 25),
+                    const Text(
+                      'No classes scheduled',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 32, // Large font for 800x400
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                )
+              : _buildMainContent(isCurrent, displayData!),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainContent(bool isCurrent, Map<String, dynamic> displayData) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -87,18 +116,7 @@ class StaticTimetableWidget extends StatelessWidget {
                   ),
               ],
             ),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white12),
-              ),
-              child: Transform.rotate(
-                angle: refreshAngle,
-                child: const Icon(Icons.refresh, color: Colors.white, size: 40),
-              ),
-            ),
+            // The Stack already handles the refresh icon position
           ],
         ),
         const SizedBox(height: 15),
@@ -225,23 +243,16 @@ class SmallRobotWidget extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Prominent Refresh Button
+            // Subtle Refresh Icon (Transparent like Calendar)
             Positioned(
-              top: 30,
-              right: 30,
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white10,
-                  shape: BoxShape.circle,
-                ),
-                child: Transform.rotate(
-                  angle: refreshAngle,
-                  child: const Icon(
-                    Icons.refresh,
-                    color: Colors.white,
-                    size: 30,
-                  ),
+              top: 25,
+              right: 25,
+              child: Transform.rotate(
+                angle: refreshAngle,
+                child: Icon(
+                  Icons.refresh,
+                  color: Colors.white.withOpacity(0.3),
+                  size: 30,
                 ),
               ),
             ),
@@ -275,7 +286,7 @@ class SmallRobotWidget extends StatelessWidget {
                     child: Text(
                       info,
                       style: TextStyle(
-                        color: Colors.white.withAlpha(200),
+                        color: Colors.white70,
                         fontSize: 28,
                         fontWeight: FontWeight.w500,
                       ),
