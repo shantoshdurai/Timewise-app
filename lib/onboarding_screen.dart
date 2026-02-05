@@ -6,6 +6,7 @@ import 'package:flutter_firebase_test/widget_service.dart';
 import 'package:flutter_firebase_test/widgets/glass_widgets.dart';
 import 'package:flutter_firebase_test/app_theme.dart';
 import 'main.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:ui';
 
 class OnboardingScreen extends StatefulWidget {
@@ -255,20 +256,73 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     children: [
                       const SizedBox(height: 40),
                       // Logo/Icon Section
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: theme.primaryColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: theme.primaryColor.withOpacity(0.2),
-                            width: 2,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.school_rounded,
-                          size: 64,
-                          color: theme.primaryColor,
+                      // Single Prominent DSU Logo with Shine Effect
+                      // Single Prominent DSU Logo with Shine Effect
+                      Center(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Outer Glow
+                            Container(
+                                  width: 180,
+                                  height: 180,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: theme.primaryColor.withOpacity(0.05),
+                                  ),
+                                )
+                                .animate(
+                                  onPlay: (controller) => controller.repeat(),
+                                )
+                                .scale(
+                                  duration: 3.seconds,
+                                  begin: const Offset(0.8, 0.8),
+                                  end: const Offset(1.2, 1.2),
+                                  curve: Curves.easeInOut,
+                                )
+                                .fadeOut(duration: 3.seconds),
+
+                            // Main Logo with Shimmer
+                            Container(
+                                  width: 140,
+                                  height: 140,
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: theme.primaryColor.withOpacity(
+                                          0.2,
+                                        ),
+                                        blurRadius: 30,
+                                        spreadRadius: 5,
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipOval(
+                                    child: Image.asset('assets/dsu_logo.png'),
+                                  ),
+                                )
+                                .animate()
+                                .scale(
+                                  duration: 800.ms,
+                                  curve: Curves.easeOutBack,
+                                )
+                                .shimmer(
+                                  duration: 2.seconds,
+                                  color: Colors.white.withOpacity(0.4),
+                                  angle: 45,
+                                )
+                                .animate(
+                                  onPlay: (controller) => controller.repeat(),
+                                )
+                                .shimmer(
+                                  delay: 3.seconds,
+                                  duration: 2.seconds,
+                                  color: Colors.white.withOpacity(0.4),
+                                  angle: 45,
+                                ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 32),
