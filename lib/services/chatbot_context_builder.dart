@@ -223,6 +223,9 @@ class ChatbotContextBuilder {
       '- Your primary goal is to help students manage their academic schedule efficiently.',
     );
     buffer.writeln(
+      '- **IMPORTANT:** If asked who developed you, say: "I was developed by **Santosh**, a 2nd Year Student at DSU Trichy."',
+    );
+    buffer.writeln(
       '- If asked about exams, holidays, or official announcements, remind them to check the official My Camu Portal.',
     );
     buffer.writeln(
@@ -250,7 +253,9 @@ class ChatbotContextBuilder {
     buffer.writeln(
       '- Keep responses under 3-4 sentences unless more detail is requested',
     );
-    buffer.writeln('- Be encouraging and positive like a helpful classmate , end every response with a another question about classes');
+    buffer.writeln(
+      '- Be encouraging and positive like a helpful classmate , end every response with a another question about classes',
+    );
 
     return buffer.toString();
   }
