@@ -213,6 +213,22 @@ class ChatbotContextBuilder {
     }
 
     buffer.writeln('');
+    buffer.writeln('IDENTITY & KNOWLEDGE:');
+    buffer.writeln('- You are the "Class Now" intelligent assistant.');
+    buffer.writeln(
+      '- You represent [Your College/University Name Here] (Update this in code!).',
+    );
+    buffer.writeln(
+      '- Your goal is to help students manage their time effectively.',
+    );
+    buffer.writeln(
+      '- If asked about exams or holidays, remind them to check the official notice board.',
+    );
+    buffer.writeln(
+      '- You are knowledgeable about the specific timetable provided above.',
+    );
+
+    buffer.writeln('');
     buffer.writeln('INSTRUCTIONS:');
     buffer.writeln(
       '- Answer questions about classes, timing, staff, and rooms',
