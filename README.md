@@ -11,6 +11,11 @@ A professional, offline-first timetable application built with Flutter & Firebas
     *   **Note:** Widgets update automatically via `WorkManager` (every 15-30m) or manual tap.
 *   **Intelligent Notifications:** Local alarms scheduled 5-30 minutes before class (customizable).
 *   **OLED Dark Mode:** Pure black UI with custom gradient background support.
+*   **🤖 AI Assistant (Class Now Bot):**
+    *   Powered by Google's **Gemma 3 27B** model.
+    *   **Context-Aware:** Knows your schedule, room numbers, and timings.
+    *   **Smart Interactions:** Ask "What's my next class?", "Where is room 704?", or just chat!
+    *   **Features:** Direct API Integration (No package bloat) & Long-press to copy responses.
 
 ---
 

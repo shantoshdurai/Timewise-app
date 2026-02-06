@@ -98,12 +98,8 @@ User: $userMessage''';
       history: history,
     );
 
-    // Simulate streaming by yielding chunks
-    final words = response.split(' ');
-    for (int i = 0; i < words.length; i++) {
-      yield words.sublist(0, i + 1).join(' ');
-      await Future.delayed(const Duration(milliseconds: 30));
-    }
+    // Yield the full text directly
+    yield response;
   }
 
   /// Clear API key
